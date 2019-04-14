@@ -137,6 +137,8 @@ static inline int read_data(const struct shell *shell, int pos, char **argv,
 static void print_frame(struct zcan_frame *frame, void *arg)
 {
 	const struct shell *shell = (const struct shell *)arg;
+	shell_fprintf(shell, SHELL_NORMAL, "test\n");
+	return;
 
 	shell_fprintf(shell, SHELL_NORMAL, "|0x%-8x|%s|%s|%d|",
 		      frame->id_type == CAN_STANDARD_IDENTIFIER ?

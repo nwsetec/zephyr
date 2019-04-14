@@ -17,7 +17,7 @@ LOG_MODULE_REGISTER(mcp2515_can);
 
 static int mcp2515_cmd_soft_reset(struct device *dev)
 {
-	u8_t cmd_buf[] = { MCP2515_OPCODE_RESET };
+	u8_t cmd_buf[] = { MCP2515_OPCODE_RESET, MCP2515_OPCODE_RESET };
 
 	const struct spi_buf tx_buf = {
 		.buf = cmd_buf, .len = sizeof(cmd_buf),
@@ -138,7 +138,6 @@ static void mcp2515_convert_zcanframe_to_mcp2515frame(const struct zcan_frame
 {
 	u8_t rtr;
 	u8_t dlc;
-	u8_t data_idx = 0U;
 
 	if (source->id_type == CAN_STANDARD_IDENTIFIER) {
 		target[MCP2515_FRAME_OFFSET_SIDH] = source->std_id >> 3;
@@ -158,39 +157,34 @@ static void mcp2515_convert_zcanframe_to_mcp2515frame(const struct zcan_frame
 
 	target[MCP2515_FRAME_OFFSET_DLC] = rtr | dlc;
 
-	for (; data_idx < 8; data_idx++) {
-		target[MCP2515_FRAME_OFFSET_D0 + data_idx] =
-			source->data[data_idx];
-	}
+	memcpy(&target[MCP2515_FRAME_OFFSET_D0], source->data, 8);
 }
 
 static void mcp2515_convert_mcp2515frame_to_zcanframe(const u8_t *source,
 						      struct zcan_frame *target)
 {
-	u8_t data_idx = 0U;
+	u32_t sid = (source[MCP2515_FRAME_OFFSET_SIDH] << 3) |
+		(source[MCP2515_FRAME_OFFSET_SIDL] >> 5);
 
 	if (source[MCP2515_FRAME_OFFSET_SIDL] & BIT(3)) {
 		target->id_type = CAN_EXTENDED_IDENTIFIER;
-		target->ext_id =
-			(source[MCP2515_FRAME_OFFSET_SIDH] << 21) |
-			((source[MCP2515_FRAME_OFFSET_SIDL] >> 5) << 18) |
+		target->ext_id = (sid << 18) |
 			((source[MCP2515_FRAME_OFFSET_SIDL] & 0x03) << 16) |
 			(source[MCP2515_FRAME_OFFSET_EID8] << 8) |
 			source[MCP2515_FRAME_OFFSET_EID0];
 	} else {
 		target->id_type = CAN_STANDARD_IDENTIFIER;
-		target->std_id = (source[MCP2515_FRAME_OFFSET_SIDH] << 3) |
-				 (source[MCP2515_FRAME_OFFSET_SIDL] >> 5);
+		target->std_id = sid;
 	}
 
 	target->dlc = source[MCP2515_FRAME_OFFSET_DLC] & 0x0F;
+	if (target->dlc > 8) {
+		LOG_WRN("(DLC=%u)>8", target->dlc);
+	}
 	target->rtr = source[MCP2515_FRAME_OFFSET_DLC] & BIT(6) ?
 		      CAN_REMOTEREQUEST : CAN_DATAFRAME;
 
-	for (; data_idx < 8; data_idx++) {
-		target->data[data_idx] = source[MCP2515_FRAME_OFFSET_D0 +
-						data_idx];
-	}
+	memcpy(target->data, &source[MCP2515_FRAME_OFFSET_D0], 8);
 }
 
 const int mcp2515_set_mode(struct device *dev, u8_t mcp2515_mode)
@@ -499,9 +493,15 @@ static void mcp2515_handle_interrupts(struct device *dev)
 	u32_t int_pin;
 	int rc;
 	u8_t canintf;
+	static u32_t i = 0;
+	static u32_t j = 0;
+	static u32_t rx_cnt = 0;
 
 	/* Loop until INT pin is high (all interrupts handled) */
+	i++;
+	j = 0;
 	while (1) {
+		j++;
 		rc = gpio_pin_read(dev_data->int_gpio, dev_cfg->int_pin, &int_pin);
 		if (rc != 0) {
 			LOG_ERR("couldn't read INT pin");
@@ -540,6 +540,8 @@ static void mcp2515_handle_interrupts(struct device *dev)
 
 		if (canintf & MCP2515_CANINTF_RX0IF) {
 			mcp2515_rx(dev, 0);
+			rx_cnt++;
+			//LOG_INF("RX0%u,%u", i, j);
 
 			/* RX0IF flag cleared automatically during read */
 			canintf &= ~MCP2515_CANINTF_RX0IF;
@@ -547,6 +549,8 @@ static void mcp2515_handle_interrupts(struct device *dev)
 
 		if (canintf & MCP2515_CANINTF_RX1IF) {
 			mcp2515_rx(dev, 1);
+			rx_cnt++;
+			//LOG_INF("RX1%u,%u", i, j);
 
 			/* RX1IF flag cleared automatically during read */
 			canintf &= ~MCP2515_CANINTF_RX1IF;
@@ -554,26 +558,29 @@ static void mcp2515_handle_interrupts(struct device *dev)
 
 		if (canintf & MCP2515_CANINTF_TX0IF) {
 			mcp2515_tx_done(dev, 0);
+			//LOG_INF("TX0%u,%u", i, j);
 		}
 
 		if (canintf & MCP2515_CANINTF_TX1IF) {
 			mcp2515_tx_done(dev, 1);
+			//LOG_INF("TX1%u,%u", i, j);
 		}
 
 		if (canintf & MCP2515_CANINTF_TX2IF) {
 			mcp2515_tx_done(dev, 2);
+			//LOG_INF("TX2%u,%u", i, j);
 		}
 
 		if (canintf & MCP2515_CANINTF_ERRIF) {
-			LOG_ERR("ERRIF");
+			LOG_ERR("ERRIF%u,%u", i, j);
 		}
 
 		if (canintf & MCP2515_CANINTF_WAKIF) {
-			LOG_WRN("WAKIF");
+			LOG_WRN("WAKIF%u,%u", i, j);
 		}
 
 		if (canintf & MCP2515_CANINTF_MERRF) {
-			LOG_ERR("MERRF");
+			LOG_ERR("MERRF%u,%u", i, j);
 		}
 
 		if (canintf != 0) {
@@ -581,7 +588,12 @@ static void mcp2515_handle_interrupts(struct device *dev)
 			mcp2515_cmd_bit_modify(dev, MCP2515_ADDR_CANINTF,
 					canintf, ~canintf);
 		}
+		//while (j>=10) {k_sleep(100);};
 	}
+	if (rx_cnt % 100 == 0) {
+		LOG_INF("rx_cnt=%u", rx_cnt);
+	}
+	//while (i>=100) {k_sleep(100);};
 }
 
 static void mcp2515_int_thread(struct device *dev)
