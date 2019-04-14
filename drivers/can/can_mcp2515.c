@@ -17,7 +17,7 @@ LOG_MODULE_REGISTER(mcp2515_can);
 
 static int mcp2515_cmd_soft_reset(struct device *dev)
 {
-	u8_t cmd_buf[] = { MCP2515_OPCODE_RESET };
+	u8_t cmd_buf[] = { MCP2515_OPCODE_RESET, MCP2515_OPCODE_RESET };
 
 	const struct spi_buf tx_buf = {
 		.buf = cmd_buf, .len = sizeof(cmd_buf),
@@ -505,9 +505,15 @@ static void mcp2515_handle_interrupts(struct device *dev)
 	u32_t int_pin;
 	int rc;
 	u8_t canintf;
+	static u32_t i = 0;
+	static u32_t j = 0;
+	static u32_t rx_cnt = 0;
 
 	/* Loop until INT pin is high (all interrupts handled) */
+	i++;
+	j = 0;
 	while (1) {
+		j++;
 		rc = gpio_pin_read(dev_data->int_gpio, dev_cfg->int_pin, &int_pin);
 		if (rc != 0) {
 			LOG_ERR("couldn't read INT pin");
@@ -541,11 +547,14 @@ static void mcp2515_handle_interrupts(struct device *dev)
 		mcp2515_cmd_read_reg(dev, MCP2515_ADDR_CANINTF, &canintf, 1);
 		if (canintf == 0) {
 			/* no interrupts have happened */
+			LOG_ERR("0");
 			break;
 		}
 
 		if (canintf & MCP2515_CANINTF_RX0IF) {
 			mcp2515_rx(dev, 0);
+			rx_cnt++;
+			//LOG_INF("RX0%u,%u", i, j);
 
 			/* RX0IF flag cleared automatically during read */
 			canintf &= ~MCP2515_CANINTF_RX0IF;
@@ -553,6 +562,8 @@ static void mcp2515_handle_interrupts(struct device *dev)
 
 		if (canintf & MCP2515_CANINTF_RX1IF) {
 			mcp2515_rx(dev, 1);
+			rx_cnt++;
+			//LOG_INF("RX1%u,%u", i, j);
 
 			/* RX1IF flag cleared automatically during read */
 			canintf &= ~MCP2515_CANINTF_RX1IF;
@@ -560,26 +571,29 @@ static void mcp2515_handle_interrupts(struct device *dev)
 
 		if (canintf & MCP2515_CANINTF_TX0IF) {
 			mcp2515_tx_done(dev, 0);
+			//LOG_INF("TX0%u,%u", i, j);
 		}
 
 		if (canintf & MCP2515_CANINTF_TX1IF) {
 			mcp2515_tx_done(dev, 1);
+			//LOG_INF("TX1%u,%u", i, j);
 		}
 
 		if (canintf & MCP2515_CANINTF_TX2IF) {
 			mcp2515_tx_done(dev, 2);
+			//LOG_INF("TX2%u,%u", i, j);
 		}
 
 		if (canintf & MCP2515_CANINTF_ERRIF) {
-			LOG_ERR("ERRIF");
+			LOG_ERR("ERRIF%u,%u", i, j);
 		}
 
 		if (canintf & MCP2515_CANINTF_WAKIF) {
-			LOG_WRN("WAKIF");
+			LOG_WRN("WAKIF%u,%u", i, j);
 		}
 
 		if (canintf & MCP2515_CANINTF_MERRF) {
-			LOG_ERR("MERRF");
+			LOG_ERR("MERRF%u,%u", i, j);
 		}
 
 		if (canintf != 0) {
@@ -587,7 +601,12 @@ static void mcp2515_handle_interrupts(struct device *dev)
 			mcp2515_cmd_bit_modify(dev, MCP2515_ADDR_CANINTF,
 					canintf, ~canintf);
 		}
+		//while (j>=10) {k_sleep(100);};
 	}
+	if (rx_cnt % 100 == 0) {
+		LOG_INF("rx_cnt=%u", rx_cnt);
+	}
+	//while (i>=100) {k_sleep(100);};
 }
 
 static void mcp2515_int_thread(struct device *dev)

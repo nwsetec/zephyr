@@ -11,9 +11,9 @@
 #include <drivers/can.h>
 #include <drivers/gpio.h>
 
-#define TX_THREAD_STACK_SIZE 512
-#define LED_THREAD_STACK_SIZE 512
-#define RX_STR_THREAD_STACK_SIZE 512
+#define TX_THREAD_STACK_SIZE 1024
+#define LED_THREAD_STACK_SIZE 1024
+#define RX_STR_THREAD_STACK_SIZE 1024
 #define TX_THREAD_PRIORITY 2
 #define LED_MSG_ID (0x10)
 #define BUTTON_MSG_ID (0x01)
@@ -48,7 +48,10 @@ void tx_irq_callback(u32_t error_flags, void *arg)
 void button_callback(struct device *port,
 		     struct gpio_callback *cb, u32_t pins)
 {
-	k_sem_give(&tx_sem);
+	if (pins == BIT(CONFIG_PIN_USER_BUTTON)) {
+		k_sem_give(&tx_sem);
+		printk("give tx_sem 0x%08X\n", pins);
+	}
 }
 
 void send_string(char *string, struct device *can_dev)
@@ -101,9 +104,9 @@ void tx_thread(void *can_dev_param, void *unused2, void *unused3)
 		msg_button_cnt.data[0] = button_press_cnt & 0xFF;
 		msg_button_cnt.data[1] = (button_press_cnt >> 8) & 0xFF;
 		can_send(can_dev, &msg, 10, tx_irq_callback, "LED msg");
-		can_send(can_dev, &msg_button_cnt, 10, NULL, "Button count");
+		//can_send(can_dev, &msg_button_cnt, 10, NULL, "Button count");
 		if (toggle == SET_LED) {
-			send_string("String sent over CAN\n", can_dev);
+			//send_string("String sent over CAN\n", can_dev);
 		}
 	}
 }
@@ -214,7 +217,7 @@ void main(void)
 		return;
 	}
 
-	k_sem_init(&tx_sem, 0, INT_MAX);
+	k_sem_init(&tx_sem, 0, 1);
 
 	button_gpio_dev = device_get_binding(CONFIG_GPIO_BUTTON_DEV);
 	if (!button_gpio_dev) {
@@ -229,6 +232,7 @@ void main(void)
 		printk("Error configuring  button pin\n");
 	}
 
+	printk("pin %u\n", CONFIG_PIN_USER_BUTTON);
 	gpio_init_callback(&gpio_cb, button_callback,
 			   BIT(CONFIG_PIN_USER_BUTTON));
 
