@@ -1,0 +1,70 @@
+/*
+ * Copyright (c) 2019 Nick Ward
+ * SPDX-License-Identifier: Apache-2.0
+ 
+ 
+ DT_SPI_FLASH_W25QXXDV_SPI_NAME
+ DT_SPI_FLASH_W25QXXDV_SPI_FREQ 8000000
+ DT_SPI_FLASH_W25QXXDV_SPI_SLAVE 1
+ DT_SPI_FLASH_W25QXXDV_GPIO_SPI_CS_DRV_NAME "GPIO_0"
+ DT_SPI_FLASH_W25QXXDV_GPIO_SPI_CS_PIN 29
+
+WP (hat) tied to 3V3
+HOLD (hat) tied to 3V3
+
+CS (hat) \34 \ SIO_29
+SCK \ 35 \ SIO_28
+MOSI \ 36 \ SIO_27   (Flash SI /100)
+MISO \ 37 \ SIO_26   (Flash SO)
+
+
+#CONFIG_SPI_0_NRF_SCK_PIN=14
+#CONFIG_SPI_0_NRF_MOSI_PIN=16
+#CONFIG_SPI_0_NRF_MISO_PIN=11
+ */
+
+&i2c0 {
+	status = "disabled";
+	};
+
+&spi0 {
+	status = "ok";
+	cs-gpios = <&gpio0 31 0>;
+	sck-pin = <14>;
+	mosi-pin = <16>;
+	miso-pin = <11>;
+	};
+
+&spi1 {
+	status = "ok";
+	cs-gpios = <&gpio0 29 0>;
+	sck-pin = <28>;
+	mosi-pin = <27>;
+	miso-pin = <26>;
+
+	/*spi-flash@1 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "winbond,w25q16", "jedec,spi-nor";
+		reg = <0>;
+		spi-max-frequency = <8000000>;
+	}; */
+};
+/*
+&spi-flash {
+	partitions {
+		compatible = "fixed-partitions";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		ext_fcb_storage_partition: partition@0 {
+			label = "ext_fcb_storage";
+			reg = <0x00000000 0x00006000>;
+		};
+	};
+};*/
+	/*
+	 * For more information, see:
+	 * http://docs.zephyrproject.org/latest/guides/dts/index.html#flash-partitions
+	 */
+	 

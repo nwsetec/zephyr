@@ -36,7 +36,7 @@ config SPI_0_NRF_SPIM
 	bool "nRF SPIM 0"
 	# This driver is not available for nRF52832 because of the anomaly 58
 	# (SPIM: An additional byte is clocked out when RXD.MAXCNT = 1).
-	depends on HAS_HW_NRF_SPIM0 && !SOC_NRF52832
+	depends on HAS_HW_NRF_SPIM0
 	select NRFX_SPIM
 	help
 	  Enable nRF SPI Master with EasyDMA on port 0.
@@ -86,7 +86,7 @@ config SPI_1_NRF_SPIM
 	bool "nRF SPIM 1"
 	# This driver is not available for nRF52832 because of the anomaly 58
 	# (SPIM: An additional byte is clocked out when RXD.MAXCNT = 1).
-	depends on HAS_HW_NRF_SPIM1 && !SOC_NRF52832
+	depends on HAS_HW_NRF_SPIM1
 	select NRFX_SPIM
 	help
 	  Enable nRF SPI Master with EasyDMA on port 1.
@@ -136,7 +136,7 @@ config SPI_2_NRF_SPIM
 	bool "nRF SPIM 2"
 	# This driver is not available for nRF52832 because of the anomaly 58
 	# (SPIM: An additional byte is clocked out when RXD.MAXCNT = 1).
-	depends on HAS_HW_NRF_SPIM2 && !SOC_NRF52832
+	depends on HAS_HW_NRF_SPIM2
 	select NRFX_SPIM
 	help
 	  Enable nRF SPI Master with EasyDMA on port 2.
