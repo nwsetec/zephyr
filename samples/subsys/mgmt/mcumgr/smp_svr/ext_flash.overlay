@@ -1,0 +1,127 @@
+/*
+ * Copyright (c) 2019 Nick Ward
+ * SPDX-License-Identifier: Apache-2.0
+ 
+ 
+ DT_SPI_FLASH_W25QXXDV_SPI_NAME
+ DT_SPI_FLASH_W25QXXDV_SPI_FREQ 8000000
+ DT_SPI_FLASH_W25QXXDV_SPI_SLAVE 1
+ DT_SPI_FLASH_W25QXXDV_GPIO_SPI_CS_DRV_NAME "GPIO_0"
+ DT_SPI_FLASH_W25QXXDV_GPIO_SPI_CS_PIN 29
+
+WP (hat) tied to 3V3
+HOLD (hat) tied to 3V3
+
+CS (hat) \34 \ SIO_29
+SCK \ 35 \ SIO_28
+MOSI \ 36 \ SIO_27   (Flash SI /100)
+MISO \ 37 \ SIO_26   (Flash SO)
+
+
+#CONFIG_SPI_0_NRF_SCK_PIN=14
+#CONFIG_SPI_0_NRF_MOSI_PIN=16
+#CONFIG_SPI_0_NRF_MISO_PIN=11
+ */
+/*
+/ {
+	/*model = "xxxx";
+	compatible = "nordic,nrf51822";
+
+	chosen {
+		zephyr,flash = &flash0;
+		zephyr,flash_map = &flash0, &flash1;
+	};
+
+
+	flash1: serial-flash@0 {
+		compatible = "serial-flash";
+		reg = <0 DT_FLASH_SIZE>;
+		label = "FLASH_1";
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			slot1_partition: partition@0 {
+				label = "image-1";
+				reg = <0x00000000 0x74000>;
+			};
+
+			storage_partition: partition@74000 {
+				label = "storage";
+				reg = <0x74000 0x6000>;
+			};
+		};
+	};
+};
+*/
+
+&i2c0 {
+	status = "disabled";
+};
+
+&spi0 {
+	status = "ok";
+	cs-gpios = <&gpio0 31 0>;
+	sck-pin = <14>;
+	mosi-pin = <16>;
+	miso-pin = <11>;
+};
+
+&spi1 {
+	status = "ok";
+	cs-gpios = <&gpio0 29 0>;
+	sck-pin = <28>;
+	mosi-pin = <27>;
+	miso-pin = <26>;
+
+	/*spi-flash@1 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "winbond,w25q16", "jedec,spi-nor";
+		reg = <0>;
+		spi-max-frequency = <8000000>;
+	}; */
+};
+/*
+&spi-flash {
+	partitions {
+		compatible = "fixed-partitions";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		ext_fcb_storage_partition: partition@0 {
+			label = "ext_fcb_storage";
+			reg = <0x00000000 0x00006000>;
+		};
+	};
+};*/
+
+/*&flash0 {
+
+	partitions {
+		compatible = "fixed-partitions";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		boot_partition: partition@0 {
+			label = "mcuboot";
+			reg = <0x00000000 0xC000>;
+		};
+		slot0_partition: partition@C000 {
+			label = "image-0";
+			reg = <0x0000C000 0x74000>;
+		};
+
+		scratch_partition: partition@74000 {
+			label = "image-scratch";
+			reg = <0x00074000 0xC000>;
+		};
+	};
+};*/
+	/*
+	 * For more information, see:
+	 * http://docs.zephyrproject.org/devices/dts/flash_partitions.html
+	 */
+	 
