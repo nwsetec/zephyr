@@ -8,7 +8,7 @@ cmake_minimum_required(VERSION 3.13.1)
 # This provides a basic application structure suitable for communication using
 # mcumgr.  It can be used as a starting point for new applications.
 
-set(DTC_OVERLAY_FILE "${CMAKE_CURRENT_SOURCE_DIR}/ext_flash.overlay")
+#set(DTC_OVERLAY_FILE "${CMAKE_CURRENT_SOURCE_DIR}/ext_flash.overlay")
 
 # Standard Zephyr application boilerplate.
 include($ENV{ZEPHYR_BASE}/cmake/app/boilerplate.cmake NO_POLICY_SCOPE)

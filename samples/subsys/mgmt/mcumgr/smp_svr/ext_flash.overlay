@@ -103,7 +103,7 @@ MISO \ 37 \ SIO_26   (Flash SO)
 	mosi-pin = <27>;
 	miso-pin = <26>;
 
-	spi-flash@1 {
+	spi-flash@0 {
 		#address-cells = <1>;
 		#size-cells = <1>;
 		compatible = "winbond,w25q16", "jedec,spi-nor";
@@ -111,7 +111,7 @@ MISO \ 37 \ SIO_26   (Flash SO)
 		spi-max-frequency = <8000000>;
 	};
 };
-/*
+
 &spi-flash {
 	partitions {
 		compatible = "fixed-partitions";
@@ -123,7 +123,7 @@ MISO \ 37 \ SIO_26   (Flash SO)
 			reg = <0x00000000 0x00006000>;
 		};
 	};
-};*/
+};
 
 /*&flash0 {
 

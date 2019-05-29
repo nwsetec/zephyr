@@ -99,7 +99,7 @@
 };
 
 &i2c0 {
-	status = "ok";
+	status = "disabled";
 	sda-pin = <26>;
 	scl-pin = <27>;
 };
@@ -118,19 +118,29 @@
 };
 
 &spi0 {
-	/* Cannot be used together with i2c0. */
-	/* status = "ok"; */
-	sck-pin = <27>;
-	mosi-pin = <26>;
-	miso-pin = <25>;
+	status = "ok";
+	cs-gpios = <&gpio0 31 0>;
+	sck-pin = <14>;
+	mosi-pin = <16>;
+	miso-pin = <11>;
 };
 
 &spi1 {
 	status = "ok";
-	sck-pin = <31>;
-	mosi-pin = <30>;
-	miso-pin = <29>;
+	cs-gpios = <&gpio0 29 0>;
+	sck-pin = <28>;
+	mosi-pin = <27>;
+	miso-pin = <26>;
+
+	spi-flash@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "winbond,w25q16", "jedec,spi-nor";
+		reg = <0>;
+		spi-max-frequency = <8000000>;
+	};
 };
+
 
 &spi2 {
 	status = "ok";
