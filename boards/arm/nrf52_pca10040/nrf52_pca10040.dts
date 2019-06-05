@@ -86,13 +86,9 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 
-			slot1_partition: partition@0 {
-				label = "image-1";
-				reg = <0x00000000 0x6C000>;
-			};
-			storage_partition: partition@6C000 {
+			storage_partition: partition@0 {
 				label = "storage";
-				reg = <0x0006C000 0x0000C000>;
+				reg = <0x00000000 0x0000C000>;
 			};
 		};
 	};
@@ -122,15 +118,10 @@
 
 &i2c0 {
 	status = "disabled";
-	sda-pin = <26>;
-	scl-pin = <27>;
 };
 
 &i2c1 {
-	/* Cannot be used together with spi1. */
-	/* status = "ok"; */
-	sda-pin = <30>;
-	scl-pin = <31>;
+	status = "disabled";
 };
 
 &pwm0 {
@@ -160,14 +151,12 @@
 		compatible = "winbond,w25q16", "jedec,spi-nor";
 		reg = <0>;
 		spi-max-frequency = <8000000>;
+		status = "ok";
 	};
 };
 
 &spi2 {
-	status = "ok";
-	sck-pin = <22>;
-	mosi-pin = <23>;
-	miso-pin = <24>;
+	status = "disabled";
 };
 
 &flash0 {
@@ -186,11 +175,15 @@
 		};
 		slot0_partition: partition@C000 {
 			label = "image-0";
-			reg = <0x0000C000 0x6C000>;
+			reg = <0x0000C000 0x00032000>;
 		};
-		scratch_partition: partition@78000 {
+		slot1_partition: partition@3e000 {
+			label = "image-1";
+			reg = <0x0003E000 0x32000>;
+		};
+		scratch_partition: partition@70000 {
 			label = "image-scratch";
-			reg = <0x00078000 0x8000>;
+			reg = <0x00070000 0xa000>;
 		};
 	};
 };
