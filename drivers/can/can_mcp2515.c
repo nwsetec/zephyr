@@ -170,9 +170,10 @@ const int mcp2515_set_mode(struct device *dev, u8_t mcp2515_mode)
 
 	if (((canstat & MCP2515_CANSTAT_MODE_MASK) >> MCP2515_CANSTAT_MODE_POS)
 	    != mcp2515_mode) {
-		LOG_ERR("Failed to set MCP2515 operation mode");
+		LOG_ERR("Failed to set MCP2515 operation mode, canstat=%u", canstat);
 		return -EIO;
 	}
+	LOG_INF("Success set MCP2515 operation mode, canstat=%u", canstat);
 
 	return 0;
 }
@@ -261,8 +262,10 @@ static int mcp2515_configure(struct device *dev, enum can_mode mode,
 	mcp2515_cmd_bit_modify(dev, MCP2515_ADDR_RXB0CTRL, rx0_ctrl, rx0_ctrl);
 	mcp2515_cmd_bit_modify(dev, MCP2515_ADDR_RXB1CTRL, rx1_ctrl, rx1_ctrl);
 
-	return mcp2515_set_mode(dev,
-				mcp2515_convert_canmode_to_mcp2515mode(mode));
+	u8_t m = mcp2515_convert_canmode_to_mcp2515mode(mode);
+	LOG_INF("MCP2515 operation mode, m=%u, mode=%u", m, mode);
+
+	return mcp2515_set_mode(dev, m);
 }
 
 static int mcp2515_send(struct device *dev, const struct zcan_frame *msg,
@@ -461,11 +464,11 @@ static void mcp2515_handle_interrupts(struct device *dev)
 			mcp2515_tx_done(dev, 0);
 		}
 
-		if (canintf & MCP2515_CANINTF_TX0IF) {
+		if (canintf & MCP2515_CANINTF_TX1IF) {
 			mcp2515_tx_done(dev, 1);
 		}
 
-		if (canintf & MCP2515_CANINTF_TX0IF) {
+		if (canintf & MCP2515_CANINTF_TX2IF) {
 			mcp2515_tx_done(dev, 2);
 		}
 
