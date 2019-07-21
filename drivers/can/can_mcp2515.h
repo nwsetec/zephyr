@@ -10,6 +10,7 @@
 
 #include <drivers/can.h>
 
+#define MCP2515_RX_CNT                   2
 #define MCP2515_TX_CNT                   3
 #define MCP2515_FRAME_LEN               13
 
@@ -78,6 +79,7 @@ struct mcp2515_config {
 #define MCP2515_OPCODE_WRITE            0x02
 #define MCP2515_OPCODE_READ             0x03
 #define MCP2515_OPCODE_BIT_MODIFY       0x05
+#define MCP2515_OPCODE_READ_RX_BUFFER   0x90
 #define MCP2515_OPCODE_READ_STATUS      0xA0
 #define MCP2515_OPCODE_RESET            0xC0
 

@@ -84,6 +84,40 @@ static int mcp2515_cmd_read_reg(struct device *dev, u8_t reg_addr,
 			      &tx, &rx);
 }
 
+/*
+ * When reading a receive buffer, reduces the overhead of a normal READ command
+ * by placing the Address Pointer at one of four locations selected by nm.
+ * 0: Receive Buffer 0, Start at RXB0SIDH (0x61)
+ * 1: Receive Buffer 0, Start at RXB0D0 (0x66)
+ * 2: Receive Buffer 1, Start at RXB1SIDH (0x71)
+ * 3: Receive Buffer 1, Start at RXB1D0 (0x76)
+ */
+static int mcp2515_cmd_read_rx_buffer(struct device *dev, u8_t nm,
+				u8_t *buf_data, u8_t buf_len)
+{
+	__ASSERT(nm <= 0x03, "nm <= 0x03");
+
+	u8_t cmd_buf[] = { MCP2515_OPCODE_READ_RX_BUFFER | (nm << 1) };
+
+	struct spi_buf tx_buf[] = {
+		{ .buf = cmd_buf, .len = sizeof(cmd_buf) },
+		{ .buf = NULL, .len = buf_len }
+	};
+	const struct spi_buf_set tx = {
+		.buffers = tx_buf, .count = ARRAY_SIZE(tx_buf)
+	};
+	struct spi_buf rx_buf[] = {
+		{ .buf = NULL, .len = sizeof(cmd_buf) },
+		{ .buf = buf_data, .len = buf_len }
+	};
+	const struct spi_buf_set rx = {
+		.buffers = rx_buf, .count = ARRAY_SIZE(rx_buf)
+	};
+
+	return spi_transceive(DEV_DATA(dev)->spi, &DEV_DATA(dev)->spi_cfg,
+			      &tx, &rx);
+}
+
 static u8_t mcp2515_convert_canmode_to_mcp2515mode(enum can_mode mode)
 {
 	switch (mode) {
@@ -416,15 +450,23 @@ static void mcp2515_rx_filter(struct device *dev, struct zcan_frame *msg)
 
 static void mcp2515_rx(struct device *dev, u8_t rx_idx)
 {
+	__ASSERT(rx_idx < MCP2515_RX_CNT, "rx_idx < MCP2515_RX_CNT");
+
 	struct zcan_frame msg;
 	u8_t rx_frame[MCP2515_FRAME_LEN];
-	u8_t addr_rx_ctrl = MCP2515_ADDR_RXB0CTRL +
-			    (rx_idx * MCP2515_ADDR_OFFSET_FRAME2FRAME);
+	u8_t nm;
+
+	/* Address Pointer selection */
+	if (rx_idx == 0) {
+		/* Receive Buffer 0, Start at RXB0SIDH */
+		nm = 0;
+	} else {
+		/* Receive Buffer 1, Start at RXB1SIDH */
+		nm = 2;
+	}
 
 	/* Fetch rx buffer */
-	mcp2515_cmd_read_reg(dev,
-			     addr_rx_ctrl + MCP2515_ADDR_OFFSET_CTRL2FRAME,
-			     rx_frame, sizeof(rx_frame));
+	mcp2515_cmd_read_rx_buffer(dev, nm, rx_frame, sizeof(rx_frame));
 	mcp2515_convert_mcp2515frame_to_zcanframe(rx_frame, &msg);
 	mcp2515_rx_filter(dev, &msg);
 }
@@ -449,15 +491,25 @@ static void mcp2515_handle_interrupts(struct device *dev)
 {
 	u8_t canintf;
 
-	mcp2515_cmd_read_reg(dev, MCP2515_ADDR_CANINTF, &canintf, 1);
+	do {
+		mcp2515_cmd_read_reg(dev, MCP2515_ADDR_CANINTF, &canintf, 1);
+		if (canintf == 0) {
+			/* no new interrupts have happened */
+			break;
+		}
 
-	while (canintf != 0) {
 		if (canintf & MCP2515_CANINTF_RX0IF) {
 			mcp2515_rx(dev, 0);
+
+			/* RX0IF flag cleared automatically during read */
+			canintf &= ~MCP2515_CANINTF_RX0IF;
 		}
 
 		if (canintf & MCP2515_CANINTF_RX1IF) {
 			mcp2515_rx(dev, 1);
+
+			/* RX1IF flag cleared automatically during read */
+			canintf &= ~MCP2515_CANINTF_RX1IF;
 		}
 
 		if (canintf & MCP2515_CANINTF_TX0IF) {
@@ -472,14 +524,14 @@ static void mcp2515_handle_interrupts(struct device *dev)
 			mcp2515_tx_done(dev, 2);
 		}
 
-		/* clear the flags we handled */
-		mcp2515_cmd_bit_modify(dev, MCP2515_ADDR_CANINTF, canintf,
-				       ~canintf);
+		if (canintf != 0) {
+			/* Clear flags that could not be cleared automatically */
+			mcp2515_cmd_bit_modify(dev, MCP2515_ADDR_CANINTF,
+					canintf, ~canintf);
+		}
 
-		/* check that no new interrupts happened while clearing known
-		 * ones */
-		mcp2515_cmd_read_reg(dev, MCP2515_ADDR_CANINTF, &canintf, 1);
-	}
+		/* loop until interrupt flags indicate no new interrupts happened */
+	} while (1);
 }
 
 static void mcp2515_int_thread(struct device *dev)
