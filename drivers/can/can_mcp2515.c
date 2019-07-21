@@ -449,9 +449,13 @@ static void mcp2515_handle_interrupts(struct device *dev)
 {
 	u8_t canintf;
 
-	mcp2515_cmd_read_reg(dev, MCP2515_ADDR_CANINTF, &canintf, 1);
+	do {
+		mcp2515_cmd_read_reg(dev, MCP2515_ADDR_CANINTF, &canintf, 1);
+		if (canintf == 0) {
+			/* no new interrupts have happened */
+			break;
+		}
 
-	while (canintf != 0) {
 		if (canintf & MCP2515_CANINTF_RX0IF) {
 			mcp2515_rx(dev, 0);
 		}
@@ -476,10 +480,8 @@ static void mcp2515_handle_interrupts(struct device *dev)
 		mcp2515_cmd_bit_modify(dev, MCP2515_ADDR_CANINTF, canintf,
 				       ~canintf);
 
-		/* check that no new interrupts happened while clearing known
-		 * ones */
-		mcp2515_cmd_read_reg(dev, MCP2515_ADDR_CANINTF, &canintf, 1);
-	}
+		/* loop until interrupt flags indicate no new interrupts happened */
+	} while (1);
 }
 
 static void mcp2515_int_thread(struct device *dev)
