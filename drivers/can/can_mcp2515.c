@@ -84,6 +84,35 @@ static int mcp2515_cmd_read_reg(struct device *dev, u8_t reg_addr,
 			      &tx, &rx);
 }
 
+static int mcp2515_cmd_read_rx_buffer(struct device *dev, u8_t rx_idx,
+				u8_t *buf_data)
+{
+	__ASSERT(rx_idx <= 1, "rx_idx <= 1");
+
+	/* Address Pointer selection */
+	u8_t n_m = ((2 * rx_idx) << 1);
+
+	u8_t cmd_buf[] = { MCP2515_OPCODE_READ_RX_BUFFER | n_m };
+
+	struct spi_buf tx_buf[] = {
+		{ .buf = cmd_buf, .len = sizeof(cmd_buf) },
+		{ .buf = NULL, .len = MCP2515_FRAME_LEN }
+	};
+	const struct spi_buf_set tx = {
+		.buffers = tx_buf, .count = ARRAY_SIZE(tx_buf)
+	};
+	struct spi_buf rx_buf[] = {
+		{ .buf = NULL, .len = sizeof(cmd_buf) },
+		{ .buf = buf_data, .len = MCP2515_FRAME_LEN }
+	};
+	const struct spi_buf_set rx = {
+		.buffers = rx_buf, .count = ARRAY_SIZE(rx_buf)
+	};
+
+	return spi_transceive(DEV_DATA(dev)->spi, &DEV_DATA(dev)->spi_cfg,
+			      &tx, &rx);
+}
+
 static u8_t mcp2515_convert_canmode_to_mcp2515mode(enum can_mode mode)
 {
 	switch (mode) {
@@ -418,13 +447,9 @@ static void mcp2515_rx(struct device *dev, u8_t rx_idx)
 {
 	struct zcan_frame msg;
 	u8_t rx_frame[MCP2515_FRAME_LEN];
-	u8_t addr_rx_ctrl = MCP2515_ADDR_RXB0CTRL +
-			    (rx_idx * MCP2515_ADDR_OFFSET_FRAME2FRAME);
 
 	/* Fetch rx buffer */
-	mcp2515_cmd_read_reg(dev,
-			     addr_rx_ctrl + MCP2515_ADDR_OFFSET_CTRL2FRAME,
-			     rx_frame, sizeof(rx_frame));
+	mcp2515_cmd_read_rx_buffer(dev, rx_idx, rx_frame);
 	mcp2515_convert_mcp2515frame_to_zcanframe(rx_frame, &msg);
 	mcp2515_rx_filter(dev, &msg);
 }
@@ -458,10 +483,16 @@ static void mcp2515_handle_interrupts(struct device *dev)
 
 		if (canintf & MCP2515_CANINTF_RX0IF) {
 			mcp2515_rx(dev, 0);
+
+			/* RX0IF flag cleared automatically during read */
+			canintf &= ~MCP2515_CANINTF_RX0IF;
 		}
 
 		if (canintf & MCP2515_CANINTF_RX1IF) {
 			mcp2515_rx(dev, 1);
+
+			/* RX1IF flag cleared automatically during read */
+			canintf &= ~MCP2515_CANINTF_RX1IF;
 		}
 
 		if (canintf & MCP2515_CANINTF_TX0IF) {
@@ -476,9 +507,11 @@ static void mcp2515_handle_interrupts(struct device *dev)
 			mcp2515_tx_done(dev, 2);
 		}
 
-		/* clear the flags we handled */
-		mcp2515_cmd_bit_modify(dev, MCP2515_ADDR_CANINTF, canintf,
-				       ~canintf);
+		if (canintf != 0) {
+			/* Clear flags that could not be cleared automatically */
+			mcp2515_cmd_bit_modify(dev, MCP2515_ADDR_CANINTF,
+					canintf, ~canintf);
+		}
 
 		/* loop until interrupt flags indicate no new interrupts happened */
 	} while (1);
