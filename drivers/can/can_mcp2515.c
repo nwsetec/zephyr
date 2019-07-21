@@ -619,7 +619,7 @@ static int mcp2515_init(struct device *dev)
 
 	k_sem_init(&dev_data->int_sem, 0, 1);
 	k_mutex_init(&dev_data->tx_mutex);
-	k_sem_init(&dev_data->tx_sem, 3, 3);
+	k_sem_init(&dev_data->tx_sem, MCP2515_TX_CNT, MCP2515_TX_CNT);
 	k_sem_init(&dev_data->tx_cb[0].sem, 0, 1);
 	k_sem_init(&dev_data->tx_cb[1].sem, 0, 1);
 	k_sem_init(&dev_data->tx_cb[2].sem, 0, 1);
