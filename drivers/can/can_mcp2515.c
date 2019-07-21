@@ -472,12 +472,25 @@ static void mcp2515_tx_done(struct device *dev, u8_t tx_idx)
 
 static void mcp2515_handle_interrupts(struct device *dev)
 {
+	const struct mcp2515_config *dev_cfg = DEV_CFG(dev);
+	struct mcp2515_data *dev_data = DEV_DATA(dev);
+	u32_t int_pin;
+	int rc;
 	u8_t canintf;
 
-	do {
+	/* Loop until INT pin is high (all interrupts handled) */
+	while (1) {
+		rc = gpio_pin_read(dev_data->int_gpio, dev_cfg->int_pin, &int_pin);
+		if (rc != 0) {
+			LOG_ERR("couldn't read INT pin");
+			break;
+		} else if (int_pin != 0) {
+			break;
+		}
+
 		mcp2515_cmd_read_reg(dev, MCP2515_ADDR_CANINTF, &canintf, 1);
 		if (canintf == 0) {
-			/* no new interrupts have happened */
+			/* no interrupts have happened */
 			break;
 		}
 
@@ -512,9 +525,7 @@ static void mcp2515_handle_interrupts(struct device *dev)
 			mcp2515_cmd_bit_modify(dev, MCP2515_ADDR_CANINTF,
 					canintf, ~canintf);
 		}
-
-		/* loop until interrupt flags indicate no new interrupts happened */
-	} while (1);
+	}
 }
 
 static void mcp2515_int_thread(struct device *dev)
@@ -550,7 +561,7 @@ static int mcp2515_init(struct device *dev)
 	struct mcp2515_data *dev_data = DEV_DATA(dev);
 	int ret;
 
-	k_sem_init(&dev_data->int_sem, 0, UINT_MAX);
+	k_sem_init(&dev_data->int_sem, 0, 1);
 	k_mutex_init(&dev_data->tx_mutex);
 	k_sem_init(&dev_data->tx_sem, MCP2515_TX_CNT, MCP2515_TX_CNT);
 	k_sem_init(&dev_data->tx_cb[0].sem, 0, 1);
