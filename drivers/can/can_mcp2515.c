@@ -253,7 +253,7 @@ static int mcp2515_configure(struct device *dev, enum can_mode mode,
 
 	/* CNF2; BTLMODE<7>|SAM<6>|PHSEG1<5:3>|PRSEG<2:0> */
 	const u8_t btlmode = 1 << 7;
-	const u8_t sam = 0 << 6;
+	const u8_t sam = 1 << 6;
 	const u8_t phseg1 = (dev_cfg->tq_bs1 - 1) << 3;
 	const u8_t prseg = (dev_cfg->tq_prop - 1);
 
@@ -272,7 +272,7 @@ static int mcp2515_configure(struct device *dev, enum can_mode mode,
 	 * RX0IE<0>
 	 * all TX and RX buffer interrupts enabled
 	 */
-	const u8_t caninte = BIT(4) | BIT(3) | BIT(2) | BIT(1) | BIT(0);
+	const u8_t caninte = BIT(7) | BIT(6) | BIT(5)| BIT(4) | BIT(3) | BIT(2) | BIT(1) | BIT(0);
 
 	/* Receive everything, filtering done in driver, RXB0 roll over into
 	 * RXB1 */
@@ -304,6 +304,11 @@ static int mcp2515_configure(struct device *dev, enum can_mode mode,
 	config_buf[1] = cnf2;
 	config_buf[2] = cnf1;
 	config_buf[3] = caninte;
+
+	LOG_INF("CNF3=0x%02X", cnf3);
+	LOG_INF("CNF2=0x%02X", cnf2);
+	LOG_INF("CNF1=0x%02X", cnf1);
+	LOG_INF("CANINTE=0x%02X", caninte);
 
 	/* will enter configuration mode automatically */
 	mcp2515_cmd_soft_reset(dev);
@@ -510,7 +515,29 @@ static void mcp2515_handle_interrupts(struct device *dev)
 		} else if (int_pin != 0) {
 			break;
 		}
+		//u8_t status;
+		/*
+		 * 0 RX0IF
+		 * 1 RX1IF
+		 * 2 TXREG 0
+		 * 3 TX0IF
+		 * 4 TXREG 1
+		 * 5 TX1IF
+		 * 6 TXREG 2
+		 * 7 TX2IF
+		 */
+		//mcp2515_cmd_read_status(dev, &status);
 
+		/*
+		 * 0 RX0IF
+		 * 1 RX1IF
+		 * 2 TX0IF
+		 * 3 TX1IF
+		 * 4 TX2IF
+		 * 5 ERRIF
+		 * 6 WAKIF
+		 * 7 MERRF
+		 */
 		mcp2515_cmd_read_reg(dev, MCP2515_ADDR_CANINTF, &canintf, 1);
 		if (canintf == 0) {
 			/* no interrupts have happened */
@@ -541,6 +568,18 @@ static void mcp2515_handle_interrupts(struct device *dev)
 
 		if (canintf & MCP2515_CANINTF_TX2IF) {
 			mcp2515_tx_done(dev, 2);
+		}
+
+		if (canintf & MCP2515_CANINTF_ERRIF) {
+			LOG_ERR("ERRIF");
+		}
+
+		if (canintf & MCP2515_CANINTF_WAKIF) {
+			LOG_WRN("WAKIF");
+		}
+
+		if (canintf & MCP2515_CANINTF_MERRF) {
+			LOG_ERR("MERRF");
 		}
 
 		if (canintf != 0) {
