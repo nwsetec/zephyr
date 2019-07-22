@@ -189,7 +189,7 @@ void rx_button_isr(struct zcan_frame *msg, void *arg)
 void main(void)
 {
 	const struct zcan_filter filter = {
-		.id_type = CAN_STANDARD_IDENTIFIER,
+		.id_type = CAN_EXTENDED_IDENTIFIER,
 		.rtr = CAN_DATAFRAME,
 		.std_id = BUTTON_MSG_ID,
 		.rtr_mask = 1,
@@ -205,7 +205,7 @@ void main(void)
 	}
 
 #ifdef CONFIG_LOOPBACK_MODE
-	can_configure(can_dev, CAN_LOOPBACK_MODE, 250000);
+	can_configure(can_dev, CAN_LOOPBACK_MODE, 125000);
 #endif
 
 	led_gpio_dev = device_get_binding(CONFIG_GPIO_LED_DEV);
@@ -224,7 +224,7 @@ void main(void)
 
 	ret = gpio_pin_configure(button_gpio_dev, CONFIG_PIN_USER_BUTTON,
 				    (GPIO_DIR_IN | GPIO_INT | GPIO_INT_EDGE |
-				     GPIO_INT_ACTIVE_HIGH | GPIO_INT_DEBOUNCE));
+				     GPIO_INT_ACTIVE_LOW | GPIO_INT_DEBOUNCE));
 	if (ret) {
 		printk("Error configuring  button pin\n");
 	}
