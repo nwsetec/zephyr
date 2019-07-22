@@ -113,6 +113,29 @@ static int mcp2515_cmd_read_rx_buffer(struct device *dev, u8_t rx_idx,
 			      &tx, &rx);
 }
 
+static int mcp2515_cmd_read_status(struct device *dev, u8_t *status)
+{
+	u8_t cmd_buf[] = { MCP2515_OPCODE_READ_STATUS };
+
+	struct spi_buf tx_buf[] = {
+		{ .buf = cmd_buf, .len = sizeof(cmd_buf) },
+		{ .buf = NULL, .len = sizeof(*status) }
+	};
+	const struct spi_buf_set tx = {
+		.buffers = tx_buf, .count = ARRAY_SIZE(tx_buf)
+	};
+	struct spi_buf rx_buf[] = {
+		{ .buf = NULL, .len = sizeof(cmd_buf) },
+		{ .buf = status, .len = sizeof(*status) }
+	};
+	const struct spi_buf_set rx = {
+		.buffers = rx_buf, .count = ARRAY_SIZE(rx_buf)
+	};
+
+	return spi_transceive(DEV_DATA(dev)->spi, &DEV_DATA(dev)->spi_cfg,
+			      &tx, &rx);
+}
+
 static u8_t mcp2515_convert_canmode_to_mcp2515mode(enum can_mode mode)
 {
 	switch (mode) {
