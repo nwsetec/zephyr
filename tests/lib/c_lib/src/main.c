@@ -16,14 +16,16 @@
  */
 
 #include <zephyr.h>
-#include <misc/__assert.h>
+#include <sys/__assert.h>
 #include <ztest.h>
 
 #include <limits.h>
+#include <sys/types.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <zephyr/types.h>
 #include <string.h>
+#include <stdlib.h>
 
 /* Recent GCC's are issuing a warning for the truncated strncpy()
  * below (the static source string is longer than the locally-defined
@@ -52,6 +54,16 @@ void test_limits(void)
 {
 
 	zassert_true((long_max + long_one == LONG_MIN), NULL);
+}
+
+static ssize_t foobar(void)
+{
+	return -1;
+}
+
+void test_ssize_t(void)
+{
+	zassert_true(foobar() < 0, NULL);
 }
 
 /**
@@ -83,8 +95,11 @@ volatile size_t size_of_long_variable = sizeof(long_variable);
 
 void test_stddef(void)
 {
-
+#ifdef CONFIG_64BIT
+	zassert_true((size_of_long_variable == 8), "sizeof");
+#else
 	zassert_true((size_of_long_variable == 4), "sizeof");
+#endif
 }
 
 /*
@@ -236,6 +251,30 @@ void test_strchr(void)
 
 /**
  *
+ * @brief Test string prefix match functions
+ *
+ */
+
+void test_strxspn(void)
+{
+	const char *empty = "";
+	const char *cset = "abc";
+
+	zassert_true(strspn("", empty) == 0U, "strspn empty empty");
+	zassert_true(strcspn("", empty) == 0U, "strcspn empty empty");
+
+	zassert_true(strspn("abde", cset) == 2U, "strspn match");
+	zassert_true(strcspn("abde", cset) == 0U, "strcspn nomatch");
+
+	zassert_true(strspn("da", cset) == 0U, "strspn nomatch");
+	zassert_true(strcspn("da", cset) == 1U, "strcspn match");
+
+	zassert_true(strspn("abac", cset) == 4U, "strspn all");
+	zassert_true(strcspn("defg", cset) == 4U, "strcspn all");
+}
+
+/**
+ *
  * @brief Test memory comparison function
  *
  */
@@ -254,10 +293,37 @@ void test_memcmp(void)
 	zassert_true((ret != 0), "memcmp 5");
 }
 
+/**
+ *
+ * @brief Test binary search function
+ *
+ */
+
+int cmp_func(const void *a, const void *b)
+{
+	return (*(int *)a - *(int *)b);
+}
+
+void test_bsearch(void)
+{
+	void *result = NULL;
+	int arr[5] = { 2, 5, 20, 50, 60 };
+	size_t size = ARRAY_SIZE(arr);
+	int key = 30;
+
+	result = (int *)bsearch(&key, arr, size, sizeof(int), cmp_func);
+	zassert_is_null(result, "bsearch -key not found");
+
+	key = 60;
+	result = (int *)bsearch(&key, arr, size, sizeof(int), cmp_func);
+	zassert_not_null(result, "bsearch -key found");
+}
+
 void test_main(void)
 {
 	ztest_test_suite(test_c_lib,
 			 ztest_unit_test(test_limits),
+			 ztest_unit_test(test_ssize_t),
 			 ztest_unit_test(test_stdbool),
 			 ztest_unit_test(test_stddef),
 			 ztest_unit_test(test_stdint),
@@ -267,7 +333,9 @@ void test_main(void)
 			 ztest_unit_test(test_strncpy),
 			 ztest_unit_test(test_memset),
 			 ztest_unit_test(test_strlen),
-			 ztest_unit_test(test_strcmp)
+			 ztest_unit_test(test_strcmp),
+			 ztest_unit_test(test_strxspn),
+			 ztest_unit_test(test_bsearch)
 			 );
 	ztest_run_test_suite(test_c_lib);
 }
