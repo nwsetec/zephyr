@@ -49,7 +49,7 @@ void button_callback(struct device *port,
 		     struct gpio_callback *cb, u32_t pins)
 {
 	if (pins == BIT(CONFIG_PIN_USER_BUTTON)) {
-		k_sem_give(&tx_sem);
+		//k_sem_give(&tx_sem);
 		printk("give tx_sem 0x%08X\n", pins);
 	}
 }
