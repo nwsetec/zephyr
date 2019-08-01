@@ -48,9 +48,13 @@ void tx_irq_callback(u32_t error_flags, void *arg)
 void button_callback(struct device *port,
 		     struct gpio_callback *cb, u32_t pins)
 {
+	if (&gpio_cb != cb) {
+		printk("nope");
+		return;
+	}
 	if (pins == BIT(CONFIG_PIN_USER_BUTTON)) {
-		//k_sem_give(&tx_sem);
-		printk("give tx_sem 0x%08X\n", pins);
+		k_sem_give(&tx_sem);
+		//printk("give tx_sem 0x%08X\n", pins);
 	}
 }
 
@@ -69,7 +73,8 @@ void send_string(char *string, struct device *can_dev)
 		str_len -= msg.dlc;
 		memcpy(msg.data, string, msg.dlc);
 		string += msg.dlc;
-		can_send(can_dev, &msg, 10, tx_irq_callback, "send_string");
+		can_send(can_dev, &msg, 10, NULL, "send_string");
+		break;
 	}
 }
 
@@ -103,10 +108,10 @@ void tx_thread(void *can_dev_param, void *unused2, void *unused3)
 		msg.data[0] = toggle;
 		msg_button_cnt.data[0] = button_press_cnt & 0xFF;
 		msg_button_cnt.data[1] = (button_press_cnt >> 8) & 0xFF;
-		can_send(can_dev, &msg, 10, tx_irq_callback, "LED msg");
-		//can_send(can_dev, &msg_button_cnt, 10, NULL, "Button count");
+		can_send(can_dev, &msg, 10, NULL, "LED msg");
+		can_send(can_dev, &msg_button_cnt, 10, NULL, "Button count");
 		if (toggle == SET_LED) {
-			//send_string("String sent over CAN\n", can_dev);
+			send_string("String sent over CAN\n", can_dev);
 		}
 	}
 }
