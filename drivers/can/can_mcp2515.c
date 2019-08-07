@@ -156,7 +156,6 @@ static void mcp2515_convert_zcanframe_to_mcp2515frame(const struct zcan_frame
 {
 	u8_t rtr;
 	u8_t dlc;
-	u8_t data_idx = 0U;
 
 	if (source->id_type == CAN_STANDARD_IDENTIFIER) {
 		target[MCP2515_FRAME_OFFSET_SIDH] = source->std_id >> 3;
@@ -176,39 +175,34 @@ static void mcp2515_convert_zcanframe_to_mcp2515frame(const struct zcan_frame
 
 	target[MCP2515_FRAME_OFFSET_DLC] = rtr | dlc;
 
-	for (; data_idx < 8; data_idx++) {
-		target[MCP2515_FRAME_OFFSET_D0 + data_idx] =
-			source->data[data_idx];
-	}
+	memcpy(&target[MCP2515_FRAME_OFFSET_D0], source->data, 8);
 }
 
 static void mcp2515_convert_mcp2515frame_to_zcanframe(const u8_t *source,
 						      struct zcan_frame *target)
 {
-	u8_t data_idx = 0U;
+	u32_t sid = (source[MCP2515_FRAME_OFFSET_SIDH] << 3) |
+		(source[MCP2515_FRAME_OFFSET_SIDL] >> 5);
 
 	if (source[MCP2515_FRAME_OFFSET_SIDL] & BIT(3)) {
 		target->id_type = CAN_EXTENDED_IDENTIFIER;
-		target->ext_id =
-			(source[MCP2515_FRAME_OFFSET_SIDH] << 21) |
-			((source[MCP2515_FRAME_OFFSET_SIDL] >> 5) << 18) |
+		target->ext_id = (sid << 18) |
 			((source[MCP2515_FRAME_OFFSET_SIDL] & 0x03) << 16) |
 			(source[MCP2515_FRAME_OFFSET_EID8] << 8) |
 			source[MCP2515_FRAME_OFFSET_EID0];
 	} else {
 		target->id_type = CAN_STANDARD_IDENTIFIER;
-		target->std_id = (source[MCP2515_FRAME_OFFSET_SIDH] << 3) |
-				 (source[MCP2515_FRAME_OFFSET_SIDL] >> 5);
+		target->std_id = sid;
 	}
 
 	target->dlc = source[MCP2515_FRAME_OFFSET_DLC] & 0x0F;
+	if (target->dlc > 8) {
+		LOG_WRN("(DLC=%u)>8", target->dlc);
+	}
 	target->rtr = source[MCP2515_FRAME_OFFSET_DLC] & BIT(6) ?
 		      CAN_REMOTEREQUEST : CAN_DATAFRAME;
 
-	for (; data_idx < 8; data_idx++) {
-		target->data[data_idx] = source[MCP2515_FRAME_OFFSET_D0 +
-						data_idx];
-	}
+	memcpy(target->data, &source[MCP2515_FRAME_OFFSET_D0], 8);
 }
 
 const int mcp2515_set_mode(struct device *dev, u8_t mcp2515_mode)
