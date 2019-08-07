@@ -60,6 +60,24 @@ static int mcp2515_cmd_write_reg(struct device *dev, u8_t reg_addr,
 	return spi_write(DEV_DATA(dev)->spi, &DEV_DATA(dev)->spi_cfg, &tx);
 }
 
+static int mcp2515_cmd_load_tx_buffer(struct device *dev, u8_t tx_idx,
+				 u8_t *buf_data)
+{
+	/* Address Pointer selection */
+	const u8_t abc[] = {0, 2, 4};
+	u8_t cmd_buf[] = { MCP2515_OPCODE_LOAD_TX_BUFFER | abc[tx_idx] };
+
+	struct spi_buf tx_buf[] = {
+		{ .buf = cmd_buf, .len = sizeof(cmd_buf) },
+		{ .buf = buf_data, .len = MCP2515_FRAME_LEN }
+	};
+	const struct spi_buf_set tx = {
+		.buffers = tx_buf, .count = ARRAY_SIZE(tx_buf)
+	};
+
+	return spi_write(DEV_DATA(dev)->spi, &DEV_DATA(dev)->spi_cfg, &tx);
+}
+
 static int mcp2515_cmd_read_reg(struct device *dev, u8_t reg_addr,
 				u8_t *buf_data, u8_t buf_len)
 {
@@ -355,9 +373,8 @@ static int mcp2515_send(struct device *dev, const struct zcan_frame *msg,
 		       (tx_idx * MCP2515_ADDR_OFFSET_FRAME2FRAME);
 
 	mcp2515_convert_zcanframe_to_mcp2515frame(msg, tx_frame);
-	mcp2515_cmd_write_reg(dev,
-			      addr_tx_ctrl + MCP2515_ADDR_OFFSET_CTRL2FRAME,
-			      tx_frame, sizeof(tx_frame));
+	mcp2515_cmd_load_tx_buffer(dev, tx_idx, tx_frame);
+
 	/* request tx slot transmission */
 	mcp2515_cmd_bit_modify(dev, addr_tx_ctrl, MCP2515_TXCTRL_TXREQ,
 			       MCP2515_TXCTRL_TXREQ);
