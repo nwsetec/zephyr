@@ -122,26 +122,31 @@ static int mcp2515_cmd_read_reg(struct device *dev, u8_t reg_addr,
 			      &tx, &rx);
 }
 
-static int mcp2515_cmd_read_rx_buffer(struct device *dev, u8_t rx_idx,
-				u8_t *buf_data)
+/*
+ * When reading a receive buffer, reduces the overhead of a normal READ command
+ * by placing the Address Pointer at one of four locations selected by nm.
+ * 0: Receive Buffer 0, Start at RXB0SIDH (0x61)
+ * 1: Receive Buffer 0, Start at RXB0D0 (0x66)
+ * 2: Receive Buffer 1, Start at RXB1SIDH (0x71)
+ * 3: Receive Buffer 1, Start at RXB1D0 (0x76)
+ */
+static int mcp2515_cmd_read_rx_buffer(struct device *dev, u8_t nm,
+				u8_t *buf_data, u8_t buf_len)
 {
-	__ASSERT(rx_idx <= 1, "rx_idx <= 1");
+	__ASSERT(nm <= 0x03, "nm <= 0x03");
 
-	/* Address Pointer selection */
-	u8_t n_m = ((2 * rx_idx) << 1);
-
-	u8_t cmd_buf[] = { MCP2515_OPCODE_READ_RX_BUFFER | n_m };
+	u8_t cmd_buf[] = { MCP2515_OPCODE_READ_RX_BUFFER | (nm << 1) };
 
 	struct spi_buf tx_buf[] = {
 		{ .buf = cmd_buf, .len = sizeof(cmd_buf) },
-		{ .buf = NULL, .len = MCP2515_FRAME_LEN }
+		{ .buf = NULL, .len = buf_len }
 	};
 	const struct spi_buf_set tx = {
 		.buffers = tx_buf, .count = ARRAY_SIZE(tx_buf)
 	};
 	struct spi_buf rx_buf[] = {
 		{ .buf = NULL, .len = sizeof(cmd_buf) },
-		{ .buf = buf_data, .len = MCP2515_FRAME_LEN }
+		{ .buf = buf_data, .len = buf_len }
 	};
 	const struct spi_buf_set rx = {
 		.buffers = rx_buf, .count = ARRAY_SIZE(rx_buf)
@@ -500,11 +505,23 @@ static void mcp2515_rx_filter(struct device *dev, struct zcan_frame *msg)
 
 static void mcp2515_rx(struct device *dev, u8_t rx_idx)
 {
+	__ASSERT(rx_idx < MCP2515_RX_CNT, "rx_idx < MCP2515_RX_CNT");
+
 	struct zcan_frame msg;
 	u8_t rx_frame[MCP2515_FRAME_LEN];
+	u8_t nm;
+
+	/* Address Pointer selection */
+	if (rx_idx == 0) {
+		/* Receive Buffer 0, Start at RXB0SIDH */
+		nm = 0;
+	} else {
+		/* Receive Buffer 1, Start at RXB1SIDH */
+		nm = 2;
+	}
 
 	/* Fetch rx buffer */
-	mcp2515_cmd_read_rx_buffer(dev, rx_idx, rx_frame);
+	mcp2515_cmd_read_rx_buffer(dev, nm, rx_frame, sizeof(rx_frame));
 	mcp2515_convert_mcp2515frame_to_zcanframe(rx_frame, &msg);
 	mcp2515_rx_filter(dev, &msg);
 }

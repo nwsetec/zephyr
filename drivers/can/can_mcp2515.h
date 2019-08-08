@@ -10,6 +10,7 @@
 
 #include <drivers/can.h>
 
+#define MCP2515_RX_CNT                   2
 #define MCP2515_TX_CNT                   3
 #define MCP2515_FRAME_LEN               13
 
