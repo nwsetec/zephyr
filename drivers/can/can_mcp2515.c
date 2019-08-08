@@ -590,7 +590,7 @@ static void mcp2515_handle_interrupts(struct device *dev)
 		 */
 		mcp2515_cmd_read_reg(dev, MCP2515_ADDR_CANINTF, &canintf, 1);
 		if (canintf == 0) {
-			/* no interrupts have happened */
+			/* no new interrupts have happened */
 			LOG_ERR("0");
 			break;
 		}
