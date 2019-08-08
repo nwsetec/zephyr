@@ -78,9 +78,15 @@ static int mcp2515_cmd_load_tx_buffer(struct device *dev, u8_t tx_idx,
 	return spi_write(DEV_DATA(dev)->spi, &DEV_DATA(dev)->spi_cfg, &tx);
 }
 
-static int mcp2515_cmd_rts(struct device *dev, u8_t tx_idx)
+/*
+ * nnn is the combination of bits at positions 0, 1 and 2 in the RTS opcode
+ * that respectively initiate transmission for buffers TXB0, TXB1 and TXB2
+ */
+static int mcp2515_cmd_rts(struct device *dev, u8_t nnn)
 {
-	u8_t cmd_buf[] = { MCP2515_OPCODE_RTS | BIT(tx_idx) };
+	__ASSERT(nnn < BIT(MCP2515_TX_CNT), "nnn < BIT(MCP2515_TX_CNT)");
+
+	u8_t cmd_buf[] = { MCP2515_OPCODE_RTS | nnn };
 
 	struct spi_buf tx_buf[] = {
 		{ .buf = cmd_buf, .len = sizeof(cmd_buf) }
@@ -386,7 +392,8 @@ static int mcp2515_send(struct device *dev, const struct zcan_frame *msg,
 	mcp2515_cmd_load_tx_buffer(dev, tx_idx, tx_frame);
 
 	/* request tx slot transmission */
-	mcp2515_cmd_rts(dev, tx_idx);
+	u8_t nnn = BIT(tx_idx);
+	mcp2515_cmd_rts(dev, nnn);
 
 	if (callback == NULL) {
 		k_sem_take(&dev_data->tx_cb[tx_idx].sem, K_FOREVER);
