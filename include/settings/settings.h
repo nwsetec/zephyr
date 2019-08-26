@@ -209,6 +209,9 @@ int settings_commit(char *name);
  */
 int settings_val_read_cb(void *value_ctx, void *buf, size_t len);
 
+int settings_val_str_read_cb(void *value_ctx, void *buf, size_t len);
+
+int settings_line_str_val_read(off_t val_off, off_t off, char *out, size_t len_req, size_t *len_read, void *cb_arg);
 /**
  * This function fetch length of decode data.
  * This function should be used inside set handler in order to detect the

@@ -160,6 +160,32 @@ int settings_val_read_cb(void *value_ctx, void *buf, size_t len)
 }
 
 /* API */
+int settings_val_str_read_cb(void *value_ctx, void *buf, size_t len)
+{
+	struct read_value_cb_ctx *value_context = value_ctx;
+	size_t len_read;
+	int rc;
+	struct runtime_value_ctx *rt_ctx;
+
+	if (value_context->runtime) {
+		rt_ctx = value_context->read_cb_ctx;
+		len_read = MIN(len, rt_ctx->size);
+		memcpy(buf, rt_ctx->p_value, len_read);
+		return len_read;
+	} else {
+		rc = settings_line_str_val_read(value_context->off, 0, buf, len,
+					    &len_read,
+					    value_context->read_cb_ctx);
+	}
+
+	if (rc == 0) {
+		return len_read;
+	}
+
+	return rc;
+}
+
+/* API */
 size_t settings_val_get_len_cb(void *value_ctx)
 {
 	struct read_value_cb_ctx *value_context = value_ctx;

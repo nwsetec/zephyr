@@ -363,6 +363,14 @@ int settings_line_val_read(off_t val_off, off_t off, char *out, size_t len_req,
 }
 #endif
 
+/* off from value begin */
+int settings_line_str_val_read(off_t val_off, off_t off, char *out, size_t len_req,
+			   size_t *len_read, void *cb_arg)
+{
+	return settings_line_raw_read(val_off + off, out, len_req, len_read,
+				      cb_arg);
+}
+
 size_t settings_line_val_get_len(off_t val_off, void *read_cb_ctx)
 {
 	size_t len;
