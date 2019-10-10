@@ -43,6 +43,8 @@ static struct bt_uuid_128 smp_bt_chr_uuid = BT_UUID_INIT_128(
 	0x48, 0x7c, 0x99, 0x74, 0x11, 0x26, 0x9e, 0xae,
 	0x01, 0x4e, 0xce, 0xfb, 0x28, 0x78, 0x2e, 0xda);
 
+static smp_bt_write_cb_t smp_bt_write_cb = NULL;
+
 /**
  * Write handler for the SMP characteristic; processes an incoming SMP request.
  */
@@ -61,6 +63,10 @@ static ssize_t smp_bt_chr_write(struct bt_conn *conn,
 	ud->conn = bt_conn_ref(conn);
 
 	zephyr_smp_rx_req(&smp_bt_transport, nb);
+
+	if (smp_bt_write_cb != NULL) {
+		smp_bt_write_cb(conn);
+	}
 
 	return len;
 }
@@ -171,8 +177,10 @@ static int smp_bt_tx_pkt(struct zephyr_smp_transport *zst, struct net_buf *nb)
 	return rc;
 }
 
-int smp_bt_register(void)
+int smp_bt_register(smp_bt_write_cb_t cb)
 {
+	smp_bt_write_cb = cb;
+
 	return bt_gatt_service_register(&smp_bt_svc);
 }
 

@@ -18,12 +18,14 @@ struct bt_conn;
 extern "C" {
 #endif
 
+typedef void (*smp_bt_write_cb_t)(struct bt_conn *conn);
+
 /**
  * @brief Registers the SMP Bluetooth service.
  *
  * @return 0 on success; negative error code on failure.
  */
-int smp_bt_register(void);
+int smp_bt_register(smp_bt_write_cb_t cb);
 
 /**
  * @brief Unregisters the SMP Bluetooth service.
