@@ -223,6 +223,8 @@ int settings_line_str_val_read(off_t val_off, off_t off, char *out, size_t len_r
  */
 size_t settings_val_get_len_cb(void *value_ctx);
 
+void config_wipe_srcs(void);
+
 /**
  * @} settings
  */

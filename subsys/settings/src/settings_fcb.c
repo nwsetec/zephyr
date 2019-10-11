@@ -109,6 +109,7 @@ static int settings_fcb_load(struct settings_store *cs, load_cb cb,
 	struct settings_fcb_load_cb_arg arg;
 	int rc;
 
+	settings_mount_fcb_backend(cf);
 	arg.cb = cb;
 	arg.cb_arg = cb_arg;
 	rc = fcb_walk(&cf->cf_fcb, 0, settings_fcb_load_cb, &arg);
@@ -253,6 +254,7 @@ static int settings_fcb_save(struct settings_store *cs, const char *name,
 	int i;
 	u8_t wbs;
 
+	settings_mount_fcb_backend(cf);
 	if (!name) {
 		return -EINVAL;
 	}

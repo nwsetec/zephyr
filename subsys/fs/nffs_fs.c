@@ -538,11 +538,11 @@ static int nffs_mount(struct fs_mount_t *mountp)
 	flash_dev = (struct device *)mountp->storage_dev;
 
 	/* Set flash descriptor fields */
-	flash_desc->id = 0;
-	flash_desc->sector_count = flash_get_page_count(flash_dev);
-	flash_desc->area_offset = DT_FLASH_AREA_STORAGE_OFFSET;
-	flash_desc->area_size = DT_FLASH_AREA_STORAGE_SIZE;
 
+	flash_desc->id = DT_FLASH_AREA_STORAGE_NF_ID;
+	flash_desc->sector_count = flash_get_page_count(flash_dev);
+	flash_desc->area_offset = DT_FLASH_AREA_STORAGE_FS_OFFSET;
+	flash_desc->area_size = DT_FLASH_AREA_STORAGE_FS_SIZE;
 	rc = nffs_misc_reset();
 	if (rc) {
 		return -EIO;

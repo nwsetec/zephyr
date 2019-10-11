@@ -85,6 +85,9 @@ int settings_line_val_read(off_t val_off, off_t off, char *out, size_t len_req,
 int settings_line_name_read(char *out, size_t len_req, size_t *len_read,
 			    void *cb_arg);
 
+int settings_line_get_length(size_t len_req, size_t *len_read,
+			    void *cb_arg);
+
 size_t settings_line_val_get_len(off_t val_off, void *read_cb_ctx);
 
 int settings_entry_copy(void *dst_ctx, off_t dst_off, void *src_ctx,

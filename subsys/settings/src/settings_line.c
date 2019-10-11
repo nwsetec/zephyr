@@ -28,7 +28,7 @@ struct settings_io_cb_s {
 #define MAX_ENC_BLOCK_SIZE 4
 
 int settings_line_write(const char *name, const char *value, size_t val_len,
-			off_t w_loc, void *cb_arg)
+		off_t w_loc, void *cb_arg)
 {
 	size_t w_size, rem, add;
 
@@ -45,13 +45,17 @@ int settings_line_write(const char *name, const char *value, size_t val_len,
 			/* base64 encoding size and write-block-size */
 	int rc;
 	u8_t wbs = settings_io_cb.rwbs;
+#ifdef SETTINGS_FS_FILE_WRITE_EN
 #ifdef CONFIG_SETTINGS_ENCODE_LEN
 	u16_t len_field;
+#endif
 #endif
 
 	rem = strlen(name);
 
+#ifdef SETTINGS_FS_FILE_WRITE_EN
 #ifdef CONFIG_SETTINGS_ENCODE_LEN
+#error With the current implementation FCB will break here
 	len_field = settings_line_len_calc(name, val_len);
 	memcpy(w_buf, &len_field, sizeof(len_field));
 	w_size = 0;
@@ -79,6 +83,8 @@ int settings_line_write(const char *name, const char *value, size_t val_len,
 	/* The Alternative to condition above mean that `rem == 0` as `name` */
 	/* must have been consumed					     */
 #endif
+#endif
+
 	w_size = rem - rem % wbs;
 	rem %= wbs;
 
@@ -427,7 +433,6 @@ int settings_line_name_read(char *out, size_t len_req, size_t *len_read,
 	return settings_line_raw_read_until(0, out, len_req, len_read,
 					    &until_char, cb_arg);
 }
-
 
 int settings_entry_copy(void *dst_ctx, off_t dst_off, void *src_ctx,
 			off_t src_off, size_t len)

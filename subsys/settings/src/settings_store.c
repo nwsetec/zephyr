@@ -47,6 +47,12 @@ void settings_dst_register(struct settings_store *cs)
 	settings_save_dst = cs;
 }
 
+void config_wipe_srcs(void)
+{
+	sys_slist_init(&settings_load_srcs);
+	settings_save_dst = NULL;
+}
+
 static void settings_load_cb(char *name, void *val_read_cb_ctx, off_t off,
 			     void *cb_arg)
 {

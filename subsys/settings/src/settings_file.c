@@ -16,12 +16,17 @@
 
 static int settings_file_load(struct settings_store *cs, load_cb cb,
 			      void *cb_arg);
+#ifdef SETTINGS_FS_FILE_WRITE_EN
 static int settings_file_save(struct settings_store *cs, const char *name,
 			      const char *value, size_t val_len);
+#endif
 
 static struct settings_store_itf settings_file_itf = {
 	.csi_load = settings_file_load,
+#ifdef SETTINGS_FS_FILE_WRITE_EN
 	.csi_save = settings_file_save,
+#endif
+	.csi_save = NULL,
 };
 
 /*
@@ -64,6 +69,7 @@ static int settings_file_load(struct settings_store *cs, load_cb cb,
 	int lines;
 	int rc;
 
+	settings_mount_fs_backend(cf);
 
 	struct line_entry_ctx entry_ctx = {
 		.stor_ctx = (void *)&file,
@@ -110,6 +116,7 @@ static int settings_file_load(struct settings_store *cs, load_cb cb,
 	return rc;
 }
 
+#ifdef SETTINGS_FS_FILE_WRITE_EN
 static void settings_tmpfile(char *dst, const char *src, char *pfx)
 {
 	int len;
@@ -299,6 +306,8 @@ static int settings_file_save(struct settings_store *cs, const char *name,
 	int rc2;
 	int rc;
 
+	settings_mount_fs_backend(cf);
+
 	if (!name) {
 		return -EINVAL;
 	}
@@ -335,6 +344,7 @@ static int settings_file_save(struct settings_store *cs, const char *name,
 
 	return rc;
 }
+#endif
 
 static int read_handler(void *ctx, off_t off, char *buf, size_t *len)
 {
@@ -379,6 +389,7 @@ static size_t get_len_cb(void *ctx)
 	return entry_ctx->len;
 }
 
+#ifdef SETTINGS_FS_FILE_WRITE_EN
 static int write_handler(void *ctx, off_t off, char const *buf, size_t len)
 {
 	struct line_entry_ctx *entry_ctx = ctx;
@@ -398,8 +409,16 @@ static int write_handler(void *ctx, off_t off, char const *buf, size_t len)
 
 	return rc;
 }
+#endif
+
+
+#ifdef SETTINGS_FS_FILE_WRITE_EN
+#define FS_WR_HANDLER write_handler
+#else
+#define FS_WR_HANDLER NULL
+#endif
 
 void settings_mount_fs_backend(struct settings_file *cf)
 {
-	settings_line_io_init(read_handler, write_handler, get_len_cb, 1);
+	settings_line_io_init(read_handler, FS_WR_HANDLER, get_len_cb, 1);
 }

@@ -18,7 +18,7 @@
 void settings_init(void);
 
 #ifdef CONFIG_SETTINGS_FS
-#include <fs.h>
+#include <fs/fs.h>
 
 static struct settings_file config_init_settings_file = {
 	.cf_name = CONFIG_SETTINGS_FS_FILE,
@@ -41,8 +41,9 @@ static void settings_init_fs(void)
 
 	settings_mount_fs_backend(&config_init_settings_file);
 }
+#endif
 
-#elif defined(CONFIG_SETTINGS_FCB)
+#if defined(CONFIG_SETTINGS_FCB)
 #include "fcb.h"
 #include "settings/settings_fcb.h"
 
@@ -123,7 +124,9 @@ int settings_subsys_init(void)
 	if (err == -EEXIST) {
 		err = 0;
 	}
-#elif defined(CONFIG_SETTINGS_FCB)
+#endif
+
+#if defined(CONFIG_SETTINGS_FCB)
 	settings_init_fcb(); /* func rises kernel panic once error */
 	err = 0;
 #endif
