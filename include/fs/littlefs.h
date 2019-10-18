@@ -9,7 +9,7 @@
 
 #include <zephyr/types.h>
 #include <kernel.h>
-#include <storage/flash_map.h>
+#include <flash_map.h>
 
 #include <lfs.h>
 

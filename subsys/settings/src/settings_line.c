@@ -278,7 +278,7 @@ static int settings_line_raw_read_until(off_t seek, char *out, size_t len_req,
 		return (rc) ? 0 : 1;
 	}
 
-	return 0;
+	return rc;
 }
 
 int settings_line_raw_read(off_t seek, char *out, size_t len_req,

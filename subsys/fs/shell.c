@@ -9,7 +9,7 @@
 #include <string.h>
 #include <shell/shell.h>
 #include <init.h>
-#include <fs.h>
+#include <fs/fs.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <inttypes.h>
@@ -42,13 +42,15 @@ static struct fs_mount_t nffs_mnt = {
 /* LITTLEFS */
 #ifdef CONFIG_FILE_SYSTEM_LITTLEFS
 #include <fs/littlefs.h>
-#include <storage/flash_map.h>
+#include <flash_map.h>
 
-FS_LITTLEFS_DECLARE_DEFAULT_CONFIG(lfs_data);
+//FS_LITTLEFS_DECLARE_DEFAULT_CONFIG(lfs_data);
+//static struct nffs_flash_desc lfs_data;
+static struct fs_littlefs lfs_storage;
 static struct fs_mount_t littlefs_mnt = {
 	.type = FS_LITTLEFS,
-	.fs_data = &lfs_data,
-	.storage_dev = (void *)DT_FLASH_AREA_STORAGE_ID,
+	.fs_data = &lfs_storage,
+	.storage_dev = (void *)DT_FLASH_AREA_STORAGE_FS_ID,
 };
 #endif
 
