@@ -43,6 +43,8 @@ static struct bt_uuid_128 smp_bt_chr_uuid = BT_UUID_INIT_128(
 	0x48, 0x7c, 0x99, 0x74, 0x11, 0x26, 0x9e, 0xae,
 	0x01, 0x4e, 0xce, 0xfb, 0x28, 0x78, 0x2e, 0xda);
 
+bool rvmn_auth_is_authenticated(struct bt_conn *conn);
+
 static smp_bt_write_cb_t smp_bt_write_cb = NULL;
 
 /**
@@ -55,6 +57,10 @@ static ssize_t smp_bt_chr_write(struct bt_conn *conn,
 {
 	struct smp_bt_user_data *ud;
 	struct net_buf *nb;
+
+	if (!rvmn_auth_is_authenticated(conn)) {
+		return BT_GATT_ERR(BT_ATT_ERR_AUTHORIZATION);
+	}
 
 	nb = mcumgr_buf_alloc();
 	net_buf_add_mem(nb, buf, len);
