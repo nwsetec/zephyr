@@ -183,8 +183,9 @@ static void transfer_next_chunk(struct device *dev)
 		   SOC_NRF52832_ALLOW_SPIM_DESPITE_PAN_58 is enabled */
 		if (IS_ENABLED(CONFIG_SOC_NRF52832) &&
 		   (xfer.rx_length == 1 && xfer.tx_length <= 1)) {
-			LOG_WRN("Transaction aborted since it would trigger nRF52832 PAN 58");
-			error = -EIO;
+		   	/* Using with external flash FS and DFU - only affects status read op code */
+			//LOG_WRN("Transaction aborted since it would trigger nRF52832 PAN 58");
+			//error = -EIO;
 		}
 
 		if (!error) {
