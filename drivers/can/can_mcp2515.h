@@ -41,8 +41,11 @@ struct mcp2515_data {
 
 	/* tx data */
 	struct k_sem tx_sem;
+	struct k_sem tx_prio_rollover_sem;
 	struct mcp2515_tx_cb tx_cb[MCP2515_TX_CNT];
 	uint8_t tx_busy_map;
+	uint8_t tx_index;
+	uint8_t tx_priority;
 
 	/* filter data */
 	uint32_t filter_usage;
@@ -160,6 +163,8 @@ struct mcp2515_config {
 #define MCP2515_EFLG_RX1OVR             BIT(7)
 
 #define MCP2515_TXCTRL_TXREQ			BIT(3)
+
+#define MCP2515_TXCTL_TPX_HIGHEST	3
 
 #define MCP2515_CANSTAT_MODE_POS		5
 #define MCP2515_CANSTAT_MODE_MASK		(0x07 << MCP2515_CANSTAT_MODE_POS)

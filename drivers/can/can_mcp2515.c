@@ -453,11 +453,14 @@ static int mcp2515_send(const struct device *dev,
 			void *callback_arg)
 {
 	struct mcp2515_data *dev_data = DEV_DATA(dev);
-	uint8_t tx_idx = 0U;
+	uint8_t tx_idx;
 	uint8_t abc;
 	uint8_t nnn;
 	uint8_t len;
-	uint8_t tx_frame[MCP2515_FRAME_LEN];
+	uint8_t tx_frame[1 + MCP2515_FRAME_LEN];
+	uint8_t map;
+	uint8_t reg_addr;
+	static const uint8_t txbxctrl[] = {MCP2515_ADDR_TXB0CTRL, MCP2515_ADDR_TXB1CTRL, MCP2515_ADDR_TXB2CTRL};
 
 	if (msg->dlc > CAN_MAX_DLC) {
 		LOG_ERR("DLC of %d exceeds maximum (%d)",
@@ -472,16 +475,33 @@ static int mcp2515_send(const struct device *dev,
 	k_mutex_lock(&dev_data->mutex, K_FOREVER);
 
 	/* find a free tx slot */
-	for (; tx_idx < MCP2515_TX_CNT; tx_idx++) {
-		if ((BIT(tx_idx) & dev_data->tx_busy_map) == 0) {
-			dev_data->tx_busy_map |= BIT(tx_idx);
-			break;
+	map = dev_data->tx_busy_map & BIT_MASK(MCP2515_TX_CNT);
+
+	if (map == BIT_MASK(MCP2515_TX_CNT)) {
+		/* no free TX buffers - do nothing */
+	} else if (map == 0) {
+		/* all TX buffers available - restart priority from highest */
+		dev_data->tx_priority = MCP2515_TXCTL_TPX_HIGHEST;
+		dev_data->tx_index = 0;
+		dev_data->tx_busy_map |= BIT(dev_data->tx_index);
+	} else {
+		dev_data->tx_index++;
+		if (dev_data->tx_index >= MCP2515_TX_CNT) {
+			dev_data->tx_index = 0;
+			if (dev_data->tx_priority == 0) {
+				dev_data->tx_priority = MCP2515_TXCTL_TPX_HIGHEST;
+			} else {
+				dev_data->tx_priority--;
+			}
 		}
+		dev_data->tx_busy_map |= BIT(dev_data->tx_index);
 	}
+
+	tx_idx = dev_data->tx_index;
 
 	k_mutex_unlock(&dev_data->mutex);
 
-	if (tx_idx == MCP2515_TX_CNT) {
+	if (map == BIT_MASK(MCP2515_TX_CNT)) {
 		LOG_WRN("no free tx slot available");
 		return CAN_TX_ERR;
 	}
@@ -489,7 +509,12 @@ static int mcp2515_send(const struct device *dev,
 	dev_data->tx_cb[tx_idx].cb = callback;
 	dev_data->tx_cb[tx_idx].cb_arg = callback_arg;
 
-	mcp2515_convert_zcanframe_to_mcp2515frame(msg, tx_frame);
+
+	/* Update priority bits in TXBxCTRL */
+	tx_frame[0] = dev_data->tx_priority;
+
+	/* Note MCP2515 TX frame x follows TXBxCTRL */
+	mcp2515_convert_zcanframe_to_mcp2515frame(msg, &tx_frame[1]);
 
 	/* Address Pointer selection */
 	abc = 2 * tx_idx;
@@ -497,7 +522,8 @@ static int mcp2515_send(const struct device *dev,
 	/* Calculate minimum length to transfer */
 	len = sizeof(tx_frame) - CAN_MAX_DLC + msg->dlc;
 
-	mcp2515_cmd_load_tx_buffer(dev, abc, tx_frame, len);
+	reg_addr = txbxctrl[tx_idx];
+	mcp2515_cmd_write_reg(dev, reg_addr, tx_frame, len);
 
 	/* request tx slot transmission */
 	nnn = BIT(tx_idx);
@@ -944,6 +970,8 @@ static struct mcp2515_data mcp2515_data_1 = {
 	.tx_cb[1].cb = NULL,
 	.tx_cb[2].cb = NULL,
 	.tx_busy_map = 0U,
+	.tx_index = 0,
+	.tx_priority = 0U,
 	.filter_usage = 0U,
 };
 
