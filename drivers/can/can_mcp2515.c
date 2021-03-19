@@ -483,21 +483,30 @@ static int mcp2515_send(const struct device *dev,
 		/* all TX buffers available - restart priority from highest */
 		dev_data->tx_priority = MCP2515_TXCTL_TPX_HIGHEST;
 		dev_data->tx_index = 0;
-		dev_data->tx_busy_map |= BIT(dev_data->tx_index);
 	} else {
 		dev_data->tx_index++;
 		if (dev_data->tx_index >= MCP2515_TX_CNT) {
-			dev_data->tx_index = 0;
-			if (dev_data->tx_priority == 0) {
-				dev_data->tx_priority = MCP2515_TXCTL_TPX_HIGHEST;
-			} else {
+			if (dev_data->tx_priority > 0) {
 				dev_data->tx_priority--;
+			} else {
+				/* TX priority is rolling over from lowest priority to highest */
+				k_mutex_unlock(&dev_data->mutex);
+
+				/* wait for lowest priority frame to be sent */
+				if (k_sem_take(&dev_data->tx_prio_rollover_sem, timeout) != 0) {
+					return CAN_TIMEOUT;
+				}
+
+				k_mutex_lock(&dev_data->mutex, K_FOREVER);
+
+				dev_data->tx_priority = MCP2515_TXCTL_TPX_HIGHEST;
 			}
+			dev_data->tx_index = 0;
 		}
-		dev_data->tx_busy_map |= BIT(dev_data->tx_index);
 	}
 
 	tx_idx = dev_data->tx_index;
+	dev_data->tx_busy_map |= BIT(tx_idx);
 
 	k_mutex_unlock(&dev_data->mutex);
 
@@ -606,6 +615,95 @@ static uint8_t mcp2515_filter_match(struct zcan_frame *msg,
 	return 1;
 }
 
+/* Array of 1st register addresses of acceptance filters 0 to 5 */
+static const uint8_t mcp2515_af_addr[] = {0x00, 0x04, 0x08, 0x10, 0x14, 0x18};
+
+/* Array of 1st register addresses of acceptance filter masks 0 to 1 */
+static const uint8_t mcp2515_am_addr[] = {0x20, 0x24};
+
+static void set_acceptance_filter(uint8_t *reg, const struct zcan_frame *filter)
+{
+	reg[0] = filter->id >> 3; /* SID[10:3] */
+
+	reg[1] = (filter->id & BIT_MASK(3)) << 5; /* SID[2:0] */
+	reg[1] |= filter->id_type << 3; /* EXIDE */
+	reg[1] |= (filter->id >> 16) & BIT_MASK(2);  /* EID[17:16] */
+
+	reg[2] = filter->id >> 8;  /* EID[15:8] */
+	reg[3] = filter->id;  /* EID[7:0] */
+}
+
+static void set_acceptance_mask(uint8_t *reg, const struct zcan_frame *mask)
+{
+	reg[0] = mask->id >> 3; /* SID[10:3] */
+
+	reg[1] = (mask->id & BIT_MASK(3)) << 5; /* SID[2:0] */
+	reg[1] |= (mask->id >> 16) & BIT_MASK(2);  /* EID[17:16] */
+
+	reg[2] = mask->id >> 8;  /* EID[15:8] */
+	reg[3] = mask->id;  /* EID[7:0] */
+}
+
+static int mcp2515_set_filter_regs(const struct device *dev,
+		            uint8_t addr, uint8_t *buf_data, uint8_t buf_len)
+{
+	uint8_t cmd_buf[] = { MCP2515_OPCODE_WRITE, addr };
+
+	struct spi_buf tx_buf[] = {
+		{ .buf = cmd_buf, .len = sizeof(cmd_buf) },
+		{ .buf = buf_data, .len = buf_len }
+	};
+	const struct spi_buf_set tx = {
+		.buffers = tx_buf, .count = ARRAY_SIZE(tx_buf)
+	};
+
+	return spi_write(DEV_DATA(dev)->spi, &DEV_DATA(dev)->spi_cfg, &tx);
+}
+
+/* 
+ * Note when configuring the acceptance filter for standard data frames the
+ * EID[15:8] becomes a filter for Data byte 0 and EID[7:0] becomes a filter
+ * for Data byte 1.
+ */
+int z_impl_mcp2515_set_hardware_acceptance_filter(const struct device *dev,
+				 uint8_t idx, struct zcan_frame *filter)
+{
+	uint8_t addr;
+	uint8_t filt_reg[4] = {0};
+
+	if (idx >= ARRAY_SIZE(mcp2515_af_addr)) {
+		LOG_ERR("out of range: %u", idx);
+		return -EINVAL;
+	}
+	addr = mcp2515_af_addr[idx];
+
+	set_acceptance_filter(filt_reg, filter);
+
+	return mcp2515_set_filter_regs(dev, addr, filt_reg, sizeof(filt_reg));
+}
+
+/* 
+ * Note when configuring the acceptance filter for standard data frames the
+ * EID[15:8] becomes a mask for Data byte 0 and EID[7:0] becomes a mask
+ * for Data byte 1.
+ */
+int z_impl_mcp2515_set_hardware_acceptance_mask(const struct device *dev,
+				 uint8_t idx, struct zcan_frame *mask)
+{
+	uint8_t addr;
+	uint8_t mask_reg[4] = {0};
+
+	if (idx >= ARRAY_SIZE(mcp2515_am_addr)) {
+		LOG_ERR("out of range: %u", idx);
+		return -EINVAL;
+	}
+	addr = mcp2515_am_addr[idx];
+
+	set_acceptance_mask(mask_reg, mask);
+
+	return mcp2515_set_filter_regs(dev, addr, mask_reg, sizeof(mask_reg));
+}
+
 static void mcp2515_rx_filter(const struct device *dev,
 			      struct zcan_frame *msg)
 {
@@ -665,6 +763,10 @@ static void mcp2515_tx_done(const struct device *dev, uint8_t tx_idx)
 
 	k_mutex_lock(&dev_data->mutex, K_FOREVER);
 	dev_data->tx_busy_map &= ~BIT(tx_idx);
+	if (dev_data->tx_busy_map == 0) {
+		/* anytime all TX buffers are empty we can give the TX priority rollover semiphore */
+		k_sem_give(&dev_data->tx_prio_rollover_sem);
+	}
 	k_mutex_unlock(&dev_data->mutex);
 	k_sem_give(&dev_data->tx_sem);
 }
@@ -777,6 +879,7 @@ static void mcp2515_handle_interrupts(const struct device *dev)
 
 		if (canintf & MCP2515_CANINTF_ERRIF) {
 			mcp2515_handle_errors(dev);
+			/* does there need to be more clean up here? */
 		}
 
 		if (canintf != 0) {
@@ -854,6 +957,7 @@ static int mcp2515_init(const struct device *dev)
 	k_sem_init(&dev_data->int_sem, 0, 1);
 	k_mutex_init(&dev_data->mutex);
 	k_sem_init(&dev_data->tx_sem, MCP2515_TX_CNT, MCP2515_TX_CNT);
+	k_sem_init(&dev_data->tx_prio_rollover_sem, 1, 1);
 	k_sem_init(&dev_data->tx_cb[0].sem, 0, 1);
 	k_sem_init(&dev_data->tx_cb[1].sem, 0, 1);
 	k_sem_init(&dev_data->tx_cb[2].sem, 0, 1);
@@ -1037,3 +1141,27 @@ NET_DEVICE_INIT(socket_can_mcp2515_1, SOCKET_CAN_NAME_1, socket_can_init,
 #endif
 
 #endif /* DT_NODE_HAS_STATUS(DT_DRV_INST(0), okay) */
+
+#ifdef CONFIG_USERSPACE
+
+#include <syscall_handler.h>
+
+int z_vrfy_mcp2515_set_hardware_acceptance_filter(const struct device *dev,
+				 uint8_t idx, struct zcan_frame *filter)
+{
+	Z_OOPS(Z_SYSCALL_SPECIFIC_DRIVER(dev, K_OBJ_DRIVER_CAN, &can_api_funcs));
+	return z_impl_mcp2515_set_hardware_acceptance_filter(dev, idx, filter);
+}
+
+#include <syscalls/mcp2515_set_hardware_acceptance_filter_mrsh.c>
+
+int z_vrfy_mcp2515_set_hardware_acceptance_mask(const struct device *dev,
+				 uint8_t idx, struct zcan_frame *filter)
+{
+	Z_OOPS(Z_SYSCALL_SPECIFIC_DRIVER(dev, K_OBJ_DRIVER_CAN, &can_api_funcs));
+	return z_impl_mcp2515_set_hardware_acceptance_mask(dev, idx, filter);
+}
+
+#include <syscalls/mcp2515_set_hardware_acceptance_mask_mrsh.c>
+
+#endif /* CONFIG_USERSPACE */
