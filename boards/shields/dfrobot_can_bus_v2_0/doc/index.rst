@@ -122,7 +122,6 @@ Zephyr application. For example:
    :tool: all
    :board: nrf52dk_nrf52832
    :shield: dfrobot_can_bus_v2_0
-   :conf: prj.mcp2515.conf
    :goals: build flash
 
 .. _DFRobot Website:
