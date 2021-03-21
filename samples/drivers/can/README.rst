@@ -43,7 +43,6 @@ provides the MCP2515 CAN controller:
    :zephyr-app: samples/drivers/CAN
    :board: nrf52dk_nrf52832
    :shield: dfrobot_can_bus_v2_0
-   :conf: prj.mcp2515.conf
    :goals: build flash
 
 Sample output
