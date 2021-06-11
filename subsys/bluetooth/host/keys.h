@@ -48,6 +48,24 @@ struct bt_csrk {
 	uint32_t                   cnt;
 };
 
+struct bt_keys_old {
+	uint8_t                 id;
+	bt_addr_le_t		addr;
+	uint8_t                 storage_start[0];
+	uint8_t			enc_size;
+	uint8_t                 flags;
+	uint16_t		keys;
+	struct bt_ltk		ltk;
+	struct bt_irk		irk;
+#if defined(CONFIG_BT_SIGNING)
+	struct bt_csrk		local_csrk;
+	struct bt_csrk		remote_csrk;
+#endif /* BT_SIGNING */
+#if !defined(CONFIG_BT_SMP_SC_PAIR_ONLY)
+	struct bt_ltk		slave_ltk;
+#endif /* CONFIG_BT_SMP_SC_PAIR_ONLY */
+};
+
 struct bt_keys {
 	uint8_t                    id;
 	bt_addr_le_t            addr;
@@ -69,6 +87,12 @@ struct bt_keys {
 	uint32_t                   aging_counter;
 #endif /* CONFIG_BT_KEYS_OVERWRITE_OLDEST */
 };
+
+#define BT_KEYS_STORAGE_LEN_OLD (sizeof(struct bt_keys_old) - \
+				 offsetof(struct bt_keys_old, storage_start))
+
+#define BT_KEYS_NON_STORAGE_LEN_OLD (sizeof(struct bt_keys_old) - \
+				     BT_KEYS_STORAGE_LEN_OLD)
 
 #define BT_KEYS_STORAGE_LEN     (sizeof(struct bt_keys) - \
 				 offsetof(struct bt_keys, storage_start))

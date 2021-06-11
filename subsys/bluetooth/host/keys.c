@@ -346,7 +346,7 @@ static int keys_set(const char *name, size_t len_rd, settings_read_cb read_cb,
 	uint8_t id;
 	ssize_t len;
 	int err;
-	char val[BT_KEYS_STORAGE_LEN];
+	char val[MAX(BT_KEYS_STORAGE_LEN, BT_KEYS_STORAGE_LEN_OLD)];
 	const char *next;
 
 	if (!name) {
@@ -395,6 +395,36 @@ static int keys_set(const char *name, size_t len_rd, settings_read_cb read_cb,
 		BT_ERR("Failed to allocate keys for %s", bt_addr_le_str(&addr));
 		return -ENOMEM;
 	}
+
+	if (len == BT_KEYS_STORAGE_LEN_OLD) {
+		BT_DBG("Old key storage: %s", bt_addr_le_str(&addr));
+
+		/*
+		 * Shift keys_old pointer so keys_old->storage_start points
+		 * to the same address as val
+		 */
+		struct bt_keys_old *keys_old = (struct bt_keys_old *)(val - BT_KEYS_NON_STORAGE_LEN_OLD);
+
+		/*
+		 * Because the struct packing is different we copy fields
+		 * individually from enc_size field onwards.
+		 */
+		keys->enc_size = keys_old->enc_size;
+		keys->flags = keys_old->flags;
+		keys->keys = keys_old->keys;
+		keys->ltk = keys_old->ltk;
+		keys->irk = keys_old->irk;
+#if defined(CONFIG_BT_SIGNING)
+		keys->local_csrk = keys_old->local_csrk;
+		keys->remote_csrk = keys_old->remote_csrk;
+#endif /* BT_SIGNING */
+#if !defined(CONFIG_BT_SMP_SC_PAIR_ONLY)
+		keys->slave_ltk = keys_old->slave_ltk;
+#endif /* CONFIG_BT_SMP_SC_PAIR_ONLY */
+#if (defined(CONFIG_BT_KEYS_OVERWRITE_OLDEST))
+		keys->aging_counter = 0; /* The old struct doesn't have this */
+#endif /* CONFIG_BT_KEYS_OVERWRITE_OLDEST */
+	} else
 	if (len != BT_KEYS_STORAGE_LEN) {
 		do {
 			/* Load shorter structure for compatibility with old
@@ -426,6 +456,10 @@ static int keys_set(const char *name, size_t len_rd, settings_read_cb read_cb,
 #endif  /* CONFIG_BT_KEYS_OVERWRITE_OLDEST */
 	return 0;
 }
+
+BUILD_ASSERT(BT_KEYS_STORAGE_LEN_OLD < BT_KEYS_STORAGE_LEN, "The old Zephyr v1.14 PROSmart key storage didn't have the aging_counter field");
+BUILD_ASSERT(BT_KEYS_STORAGE_LEN_OLD == 78, "To maintain old PROSmart BLE bond keys this should not change between builds");
+BUILD_ASSERT(BT_KEYS_STORAGE_LEN == 84, "To maintain PROSmart BLE bond keys this should not change between builds");
 
 static void id_add(struct bt_keys *keys, void *user_data)
 {
