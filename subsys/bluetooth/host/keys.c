@@ -338,6 +338,9 @@ int bt_keys_store(struct bt_keys *keys)
 	return 0;
 }
 
+#define OLD_KEYS_COPY(x) \
+	memcpy(&keys->x, (uint8_t *)(&keys_old->x) - BT_KEYS_NON_STORAGE_LEN_OLD, sizeof(keys->x));
+
 static int keys_set(const char *name, size_t len_rd, settings_read_cb read_cb,
 		    void *cb_arg)
 {
@@ -403,23 +406,23 @@ static int keys_set(const char *name, size_t len_rd, settings_read_cb read_cb,
 		 * Shift keys_old pointer so keys_old->storage_start points
 		 * to the same address as val
 		 */
-		struct bt_keys_old *keys_old = (struct bt_keys_old *)(val - BT_KEYS_NON_STORAGE_LEN_OLD);
+		struct bt_keys_old *keys_old = (struct bt_keys_old *)val;
 
 		/*
 		 * Because the struct packing is different we copy fields
 		 * individually from enc_size field onwards.
 		 */
-		keys->enc_size = keys_old->enc_size;
-		keys->flags = keys_old->flags;
-		keys->keys = keys_old->keys;
-		keys->ltk = keys_old->ltk;
-		keys->irk = keys_old->irk;
+		OLD_KEYS_COPY(enc_size);
+		OLD_KEYS_COPY(flags);
+		OLD_KEYS_COPY(keys);
+		OLD_KEYS_COPY(ltk);
+		OLD_KEYS_COPY(irk);
 #if defined(CONFIG_BT_SIGNING)
-		keys->local_csrk = keys_old->local_csrk;
-		keys->remote_csrk = keys_old->remote_csrk;
+		OLD_KEYS_COPY(local_csrk);
+		OLD_KEYS_COPY(remote_csrk);
 #endif /* BT_SIGNING */
 #if !defined(CONFIG_BT_SMP_SC_PAIR_ONLY)
-		keys->slave_ltk = keys_old->slave_ltk;
+		OLD_KEYS_COPY(slave_ltk);
 #endif /* CONFIG_BT_SMP_SC_PAIR_ONLY */
 #if (defined(CONFIG_BT_KEYS_OVERWRITE_OLDEST))
 		keys->aging_counter = 0; /* The old struct doesn't have this */
