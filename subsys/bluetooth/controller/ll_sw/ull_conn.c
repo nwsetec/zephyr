@@ -4047,6 +4047,21 @@ static inline void event_phy_upd_ind_prep(struct ll_conn *conn,
 		struct node_rx_pdu *rx;
 		uint8_t old_tx, old_rx;
 
+		/* Acquire additional rx node for Data length notification as
+		 * a peripheral.
+		 */
+		if (IS_ENABLED(CONFIG_BT_PERIPHERAL) &&
+		    IS_ENABLED(CONFIG_BT_CTLR_DATA_LENGTH) &&
+		    conn->lll.role) {
+			rx = ll_pdu_rx_alloc();
+			if (!rx) {
+				return;
+			}
+
+			rx->hdr.link->mem = conn->llcp_rx;
+			conn->llcp_rx = rx;
+		}
+
 #if defined(CONFIG_BT_PERIPHERAL) && defined(CONFIG_BT_CTLR_LE_ENC)
 		if (conn->lll.role && (conn->slave.llcp_type != LLCP_NONE)) {
 			/* Local peripheral initiated PHY update completed while
@@ -5461,15 +5476,6 @@ static inline uint8_t phy_upd_ind_recv(struct ll_conn *conn, memq_link_t *link,
 	(*rx)->hdr.link = link;
 	conn->llcp_rx = *rx;
 	*rx = NULL;
-
-#if defined(CONFIG_BT_CTLR_DATA_LENGTH)
-	/* reserve rx node for DLE event generation */
-	struct node_rx_pdu *rx_dle = ll_pdu_rx_alloc();
-
-	LL_ASSERT(rx_dle);
-	rx_dle->hdr.link->mem = conn->llcp_rx;
-	conn->llcp_rx = rx_dle;
-#endif /* CONFIG_BT_CTLR_DATA_LENGTH */
 
 	conn->llcp_type = LLCP_PHY_UPD;
 	conn->llcp_ack -= 2U;
