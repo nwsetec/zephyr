@@ -289,7 +289,7 @@ static MFIFO_DEFINE(prep, sizeof(struct lll_event), EVENT_PIPELINE_MAX);
  * The actual backing behind these pointers is mem_done
  */
 #if !defined(VENDOR_EVENT_DONE_MAX)
-#define EVENT_DONE_MAX 3
+#define EVENT_DONE_MAX 4
 #else
 #define EVENT_DONE_MAX VENDOR_EVENT_DONE_MAX
 #endif
